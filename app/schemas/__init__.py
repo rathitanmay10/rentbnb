@@ -8,6 +8,7 @@ from app.schemas.auth import (
 from app.schemas.tenant import (
     TenantCreate,
     TenantListResponse,
+    TenantRegistrationSchema,
     TenantResponse,
     TenantUpdate,
 )
@@ -20,18 +21,19 @@ from app.schemas.user import (
 )
 
 __all__ = [
-    "RegisterSchema",
-    "LoginSchema",
-    "TokenResponse",
-    "RefreshSchema",
     "ChangePasswordSchema",
-    "TenantCreate",
-    "TenantUpdate",
-    "TenantResponse",
-    "TenantListResponse",
-    "UserCreate",
+    "LoginSchema",
+    "RefreshSchema",
+    "RegisterSchema",
     "SuperAdminUserCreate",
-    "UserUpdate",
-    "UserResponse",
+    "TenantCreate",
+    "TenantListResponse",
+    "TenantRegistrationSchema",
+    "TenantResponse",
+    "TenantUpdate",
+    "TokenResponse",
+    "UserCreate",
     "UserListResponse",
+    "UserResponse",
+    "UserUpdate",
 ]

@@ -4,7 +4,11 @@ from uuid import UUID
 from pydantic import BaseModel, field_validator
 
 from app.enums import TenantStatus
-from app.utils.validators import validate_tenant_name
+from app.utils.validators import (
+    validate_password,
+    validate_tenant_name,
+    validate_username,
+)
 
 
 class TenantBase(BaseModel):
@@ -27,6 +31,36 @@ class TenantUpdate(TenantBase):
     @classmethod
     def _validate_name(cls, v: str | None):
         return validate_tenant_name(v)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: TenantStatus | None):
+        if v is None:
+            raise ValueError("Tenant Status cannot be null")
+
+
+class TenantRegistrationSchema(BaseModel):
+    """Schema for tenant registration with admin user."""
+
+    company_name: str
+    admin_username: str
+    admin_email: str
+    admin_password: str
+
+    @field_validator("company_name")
+    @classmethod
+    def _validate_company_name(cls, v: str):
+        return validate_tenant_name(v)
+
+    @field_validator("admin_username")
+    @classmethod
+    def _validate_username(cls, v: str):
+        return validate_username(v)
+
+    @field_validator("admin_password")
+    @classmethod
+    def _validate_password(cls, v: str):
+        return validate_password(v)
 
 
 class TenantResponse(BaseModel):
