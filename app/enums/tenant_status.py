@@ -1,6 +1,6 @@
-import enum
+from enum import StrEnum
 
 
-class TenantStatus(enum.Enum):
+class TenantStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
