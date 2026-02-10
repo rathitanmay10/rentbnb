@@ -32,18 +32,11 @@ class UserCreate(UserBase):
 
 class SuperAdminUserCreate(UserCreate):
     tenant_id: UUID
-    role: UserRole = UserRole.ADMIN
+    role: UserRole = UserRole.SUPER_ADMIN
 
 
-class UserUpdate(UserBase):
+class UserUpdate(BaseModel):
     is_active: bool | None = None
-
-    @field_validator("username")
-    @classmethod
-    def _validate_username(cls, v: str | None):
-        if v is None:
-            return v
-        return validate_username(v)
 
 
 class UserResponse(BaseModel):
@@ -54,11 +47,8 @@ class UserResponse(BaseModel):
     tenant_id: UUID | None
     is_active: bool
     is_verified: bool
-    token_version: int
     created_at: datetime
     updated_at: datetime
-    is_deleted: bool
-    deleted_at: datetime | None
 
     model_config = {"from_attributes": True}
 
