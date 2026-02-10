@@ -37,6 +37,7 @@ class TenantUpdate(TenantBase):
     def validate_status(cls, v: TenantStatus | None):
         if v is None:
             raise ValueError("Tenant Status cannot be null")
+        return v
 
 
 class TenantRegistrationSchema(BaseModel):

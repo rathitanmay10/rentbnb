@@ -123,7 +123,10 @@ async def resend_verfication_email(
     if ttl > 0:
         elapsed = EMAIL_VERIFY_TTL - ttl
         if elapsed < RESEND_WAIT_SECONDS:
-            raise HTTPException(429, "Wait before resending.")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Wait before resending.",
+            )
     user = await user_service.get_user_by_email(db, data.email)
 
     if not user:
@@ -206,7 +209,7 @@ async def login_otp_init(
         return {"message": OTP_SENT}
 
     if not user.is_active:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
 
     # Send OTP using OTPHandler
     await OTPHandler.send_otp(email, background_tasks)
@@ -224,10 +227,12 @@ async def login_otp_verify(db: AsyncSession, verify_data: VerifyLoginSchema) -> 
     # Get user
     user = await user_service.get_user_by_email(db, verify_data.email)
     if not user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     if not user.is_active:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
 
     # Issue tokens
     access_token = create_access_token(user)
