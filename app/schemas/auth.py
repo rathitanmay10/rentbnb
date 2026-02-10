@@ -19,9 +19,22 @@ class RegisterSchema(BaseModel):
         return validate_password(v)
 
 
+class VerifyEmailSchema(BaseModel):
+    token: str
+
+
+class EmailOnlySchema(BaseModel):
+    email: EmailStr
+
+
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
+
+
+class VerifyLoginSchema(BaseModel):
+    email: EmailStr
+    otp: str
 
 
 class TokenResponse(BaseModel):
@@ -35,6 +48,20 @@ class RefreshSchema(BaseModel):
 
 class ChangePasswordSchema(BaseModel):
     old_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def _validate_new_password(cls, v):
+        return validate_password(v)
+
+
+class ForgotPasswordSchema(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordSchema(BaseModel):
+    token: str
     new_password: str
 
     @field_validator("new_password")
