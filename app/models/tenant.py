@@ -17,3 +17,4 @@ class Tenant(Base):
     )
 
     users = relationship("User", back_populates="tenant", lazy="noload")
+    properties = relationship("Property", back_populates="tenant", lazy="select")
