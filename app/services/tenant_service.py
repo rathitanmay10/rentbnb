@@ -5,7 +5,7 @@ from fastapi import BackgroundTasks, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.auth_ttl import EMAIL_VERIFY_TTL
-from app.crud import tenant_crud, user_crud
+from app.crud import property_crud, tenant_crud, user_crud
 from app.enums import UserRole
 from app.models import Tenant, User
 from app.schemas import TenantCreate, TenantUpdate
@@ -159,10 +159,8 @@ async def soft_delete_tenant_cascade(db: AsyncSession, tenant_id: UUID) -> bool:
     Returns:
         True if successful, False if tenant not found
     """
-    # Soft delete all users first
     await user_crud.soft_delete_users_by_tenant(db, tenant_id)
-
-    # Then soft delete the tenant
+    await property_crud.soft_delete_properties_by_tenant(db, tenant_id)
     success = await tenant_crud.soft_delete_tenant(db, tenant_id)
     if success:
         await db.commit()

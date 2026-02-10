@@ -8,6 +8,8 @@ A modern, scalable backend for a property rental management platform built with 
 - **User Authentication**: JWT-based authentication with refresh tokens and passwordless OTP login
 - **Email Verification**: Automated email-based account verification
 - **Password Management**: Secure password hashing with bcrypt, forgot password/reset flow
+- **Property Management**: Complete property lifecycle management with amenities and images
+- **Image Handling**: Secure image uploads with UUID filenames and static file serving
 - **Role-Based Access Control**: Support for SUPER_ADMIN, TENANT_ADMIN, MANAGER, and GUEST roles
 - **Database Migrations**: Automated schema versioning with Alembic
 - **Caching Layer**: Redis integration for OTP, verification tokens, and temporary data
@@ -190,6 +192,20 @@ rentbnb/
 - `GET /api/v1/user/{id}` - Get user details (TENANT_ADMIN can see users in their tenant)
 - `POST /api/v1/user/` - Create user (TENANT_ADMIN can create users in their tenant)
 - `GET /api/v1/user/` - List users (TENANT_ADMIN sees users in their tenant)
+
+### Property Management
+- `GET /api/v1/properties/public` - List all active properties (Public access with filters)
+- `POST /api/v1/properties/` - Create property (TENANT_ADMIN/MANAGER)
+- `GET /api/v1/properties/` - List internal properties (TENANT_ADMIN/MANAGER)
+- `GET /api/v1/properties/{id}` - Get property details
+- `PATCH /api/v1/properties/{id}` - Update property particulars
+- `DELETE /api/v1/properties/{id}` - Soft delete property
+- `POST /api/v1/properties/{id}/images` - Upload property image
+- `DELETE /api/v1/properties/{id}/images/{image_id}` - Delete property image
+
+### Amenity Management
+- `GET /api/v1/amenities/` - List all amenities
+- `POST /api/v1/amenities/` - Create amenity (SUPER_ADMIN only)
 
 ## Authentication & Security
 
