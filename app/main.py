@@ -3,11 +3,12 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config.settings import settings
-from app.routers import auth, tenant, user
+from app.routers import amenity, auth, property, tenant, user
 from app.utils.exception_handlers import (
     db_exception_handler,
     global_exception_handler,
@@ -56,5 +57,10 @@ api_v1 = APIRouter(prefix="/api/v1")
 api_v1.include_router(auth.router)
 api_v1.include_router(tenant.router)
 api_v1.include_router(user.router)
+api_v1.include_router(property.router)
+api_v1.include_router(amenity.router)
 
 app.include_router(api_v1)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="uploads"), name="static")
