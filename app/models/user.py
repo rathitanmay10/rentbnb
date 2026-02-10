@@ -8,10 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.enums import UserRole
 from app.models.base import Base
-from app.models.mixins import TenantMixin
 
 
-class User(Base, TenantMixin):
+class User(Base):
     __tablename__ = "users"
     username: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
     email: Mapped[str] = mapped_column(
@@ -30,6 +29,7 @@ class User(Base, TenantMixin):
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("tenants.id"),
         nullable=True,
+        index=True,
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -41,9 +41,9 @@ class User(Base, TenantMixin):
         default=False,
         nullable=False,
     )
-    tenant = relationship("Tenant", back_populates="users", lazy="selectin")
+    tenant = relationship("Tenant", back_populates="users", lazy="joined")
     blacklisted_tokens = relationship(
-        "BlacklistedToken", back_populates="user", lazy="selectin"
+        "BlacklistedToken", back_populates="user", lazy="noload"
     )
 
 

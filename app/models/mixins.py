@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import UUID, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column
@@ -44,7 +44,7 @@ class SoftDeleteMixin:
     def soft_delete(self):
         """Mark object as deleted."""
         self.is_deleted = True
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = datetime.now(UTC)
 
     def restore(self):
         """Undo soft delete."""
@@ -56,6 +56,5 @@ class TenantMixin:
     @declared_attr
     def tenant_id(cls) -> Mapped[uuid.UUID]:
         return mapped_column(
-            ForeignKey("tenants.id", ondelete="CASCADE"),
-            nullable=False,
+            ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
         )

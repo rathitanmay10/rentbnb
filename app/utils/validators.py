@@ -1,6 +1,6 @@
 import re
 
-USERNAME_REGEX = r"^[a-z0-9_]{10,150}$"
+USERNAME_REGEX = r"^[a-z0-9_]{5,150}$"
 
 
 def validate_username(v: str) -> str:
@@ -8,7 +8,7 @@ def validate_username(v: str) -> str:
     Validate username format.
 
     Rules:
-    - Must be 10-150 characters
+    - Must be 5-150 characters
     - Only lowercase letters, numbers, and underscores
     - No spaces allowed
     """
@@ -19,7 +19,7 @@ def validate_username(v: str) -> str:
 
     if not re.fullmatch(USERNAME_REGEX, v):
         raise ValueError(
-            "Username must be 10-150 characters and contain only letters, numbers, and underscores"
+            "Username must be 5-150 characters and contain only letters, numbers, and underscores"
         )
     return v
 
@@ -52,13 +52,12 @@ def validate_tenant_name(v: str | None) -> str | None:
     Validate tenant name.
 
     Rules:
-    - Minimum 10 characters
+    - Minimum 5 characters
     - Normalized to lowercase
     """
     if v is None:
-        return v
-
+        raise ValueError("Tenant name cannot be null")
     v = v.strip().lower()
-    if len(v) < 10:
-        raise ValueError("Tenant name must be at least 10 characters long")
+    if len(v) < 5:
+        raise ValueError("Tenant name must be at least 5 characters long")
     return v
