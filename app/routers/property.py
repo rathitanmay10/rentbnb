@@ -29,8 +29,8 @@ async def create_property(
     return await property_service.create_property(db, user, data)
 
 
-@router.get("/", response_model=PropertyListResponse)
-async def list_properties(
+@router.get("/own", response_model=PropertyListResponse)
+async def list_own_properties(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
@@ -47,8 +47,8 @@ async def list_properties(
     return {"total": total, "skip": skip, "limit": limit, "data": properties}
 
 
-@router.get("/public", response_model=PropertyListResponse)
-async def list_public_properties(
+@router.get("/", response_model=PropertyListResponse)
+async def list_properties(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     min_price: Decimal = Query(None),
@@ -56,10 +56,12 @@ async def list_public_properties(
     category: str = Query(None),
     city: str = Query(None),
     guests: int = Query(None),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    properties, total = await property_crud.get_public_properties(
-        db, skip, limit, min_price, max_price, category, city, guests
+    tenant_id = current_user.tenant_id
+    properties, total = await property_crud.get_properties(
+        db, skip, limit, min_price, max_price, category, city, guests, tenant_id
     )
     return {"total": total, "skip": skip, "limit": limit, "data": properties}
 
@@ -70,8 +72,6 @@ async def get_property(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # TODO: Add specific access logic (e.g. if private, only tenant can see?)
-    # For now, following spec: "all users can access this endpoint"
     prop = await property_crud.get_property(db, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -82,10 +82,9 @@ async def get_property(
 async def update_property(
     property_id: UUID,
     data: PropertyUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
     db: AsyncSession = Depends(get_db),
 ):
-    # Add auth check service logic
     prop = await property_crud.get_property(db, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -102,10 +101,9 @@ async def update_property(
 async def upload_image(
     property_id: UUID,
     file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
     db: AsyncSession = Depends(get_db),
 ):
-    # Auth check inside service
     return await property_service.upload_property_image(db, user, property_id, file)
 
 
@@ -116,9 +114,6 @@ async def delete_property_image(
     property_id: UUID,
     image_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
 ):
-    """Delete a property image."""
-    await property_service.delete_property_image(
-        db, current_user, property_id, image_id
-    )
+    await property_service.delete_property_image(db, user, property_id, image_id)

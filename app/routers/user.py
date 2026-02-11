@@ -40,31 +40,38 @@ async def create_user(
     - Email and username must be unique (case-insensitive)
     """
 
+    if user_data.role == UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admins cannot be created",
+        )
+
     if current_user.role == UserRole.TENANT_ADMIN:
-        if user_data.role != UserRole.MANAGER:
+        if user_data.role not in [UserRole.MANAGER, UserRole.GUEST]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Tenant admins can only create Managers",
+                detail="Tenant admins can only create Managers or Guests",
             )
-        user_data.tenant_id = current_user.tenant_id
-
-    if user_data.role == UserRole.GUEST:
-        user_data.tenant_id = None
-
-    if await redis_client.get(f"verification:{user_data.email}") is not None:
+        tenant_id = current_user.tenant_id
+        user_data.tenant_id = tenant_id
+    tenant_prefix = f"tenant:{tenant_id}:"
+    if (
+        await redis_client.get(f"{tenant_prefix}verification:{user_data.email}")
+        is not None
+    ):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Verification email already sent. Please wait.",
         )
 
     try:
-        user = await user_service.create_user(db, user_data)
+        user = await user_service.create_user(db, user_data, user_data.tenant_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
-        f"verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
+        f"{tenant_prefix}verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
     )
     await redis_client.set(
         f"verification:{token}", str(user.id), expire=EMAIL_VERIFY_TTL
@@ -86,7 +93,7 @@ async def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_tenant_or_super_admin),
 ):
     """
     List users with pagination.
