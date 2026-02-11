@@ -42,12 +42,20 @@ SECRET = settings.SECRET_KEY
 
 
 async def register_user(
-    db: AsyncSession, register_data: RegisterSchema, background_tasks: BackgroundTasks
+    db: AsyncSession,
+    register_data: RegisterSchema,
+    background_tasks: BackgroundTasks,
+    tenant_id: UUID | None,
 ) -> dict:
     """
     Register a new user (guest by default) and send verification email.
     """
-    if await redis_client.get(f"verification:{register_data.email}") is not None:
+    # Scope redis key to tenant
+    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+    if (
+        await redis_client.get(f"{tenant_prefix}verification:{register_data.email}")
+        is not None
+    ):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Verification email already sent. Please wait.",
@@ -59,7 +67,7 @@ async def register_user(
         username=register_data.username,
         email=register_data.email,
         password=register_data.password,
-        tenant_id=None,
+        tenant_id=tenant_id,
         role=UserRole.GUEST,
     )
 
@@ -70,7 +78,7 @@ async def register_user(
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
-        f"verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
+        f"{tenant_prefix}verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
     )
     await redis_client.set(
         f"verification:{token}", str(user.id), expire=EMAIL_VERIFY_TTL
@@ -83,6 +91,46 @@ async def register_user(
 
     return {
         "message": "Registration successful. Please check your email to verify your account.",
+    }
+
+
+async def resend_verfication_email(
+    db: AsyncSession,
+    data: EmailOnlySchema,
+    background_tasks: BackgroundTasks,
+    tenant_id: UUID | None,
+):
+    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+    ttl = await redis_client.ttl(f"{tenant_prefix}verification:{data.email}")
+    if ttl > 0:
+        elapsed = EMAIL_VERIFY_TTL - ttl
+        if elapsed < RESEND_WAIT_SECONDS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Wait before resending.",
+            )
+    user = await user_service.get_user_by_email(db, data.email, tenant_id)
+
+    if not user:
+        return {"message": "If email exists, a verification link has been sent."}
+
+    if user.is_verified:
+        return {"message": "User already verified."}
+
+    token = secrets.token_urlsafe(32)
+    await redis_client.set(
+        f"{tenant_prefix}verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
+    )
+    await redis_client.set(
+        f"verification:{token}", str(user.id), expire=EMAIL_VERIFY_TTL
+    )
+
+    email, subject, body = build_verification_email(token, user.email)
+    background_tasks.add_task(
+        email_service.email_service.send_email, email, subject, body
+    )
+    return {
+        "message": "Email sent, please check your email to verify your account.",
     }
 
 
@@ -110,54 +158,26 @@ async def verify_email(db: AsyncSession, token: str) -> bool:
     await db.commit()
 
     # Delete token
+    # Delete token
     await redis_client.delete(f"verification:{token}")
-    await redis_client.delete(f"verification:{user.email}")
+
+    # We need to delete the email rate limit key.
+    # Since we don't have tenant_id here easily without fetching user (which we did),
+    # we can construct the prefix.
+    tenant_prefix = f"tenant:{user.tenant_id}:" if user.tenant_id else "tenant:none:"
+    await redis_client.delete(f"{tenant_prefix}verification:{user.email}")
 
     return True
 
 
-async def resend_verfication_email(
-    db: AsyncSession, data: EmailOnlySchema, background_tasks: BackgroundTasks
-):
-    ttl = await redis_client.ttl(f"verification:{data.email}")
-    if ttl > 0:
-        elapsed = EMAIL_VERIFY_TTL - ttl
-        if elapsed < RESEND_WAIT_SECONDS:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Wait before resending.",
-            )
-    user = await user_service.get_user_by_email(db, data.email)
-
-    if not user:
-        return {"message": "If email exists, a verification link has been sent."}
-
-    if user.is_verified:
-        return {"message": "User already verified."}
-
-    token = secrets.token_urlsafe(32)
-    await redis_client.set(
-        f"verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
-    )
-    await redis_client.set(
-        f"verification:{token}", str(user.id), expire=EMAIL_VERIFY_TTL
-    )
-
-    email, subject, body = build_verification_email(token, user.email)
-    background_tasks.add_task(
-        email_service.email_service.send_email, email, subject, body
-    )
-    return {
-        "message": "Email sent, please check your email to verify your account.",
-    }
-
-
-async def login_password(db: AsyncSession, login_data: LoginSchema) -> dict:
+async def login_password(
+    db: AsyncSession, login_data: LoginSchema, tenant_id: UUID | None
+) -> dict:
     """
     Standard login with Email and Password.
     Returns Access and Refresh tokens.
     """
-    user = await user_service.get_user_by_email(db, login_data.email)
+    user = await user_service.get_user_by_email(db, login_data.email, tenant_id)
 
     if not user:
         # Avoid user enumeration (marketing/timing attack mitigation)
@@ -198,12 +218,15 @@ async def login_password(db: AsyncSession, login_data: LoginSchema) -> dict:
 
 
 async def login_otp_init(
-    db: AsyncSession, email: str, background_tasks: BackgroundTasks
+    db: AsyncSession,
+    email: str,
+    background_tasks: BackgroundTasks,
+    tenant_id: UUID | None,
 ) -> dict:
     """
     Step 1 of Passwordless Login: Check user exists and send OTP.
     """
-    user = await user_service.get_user_by_email(db, email)
+    user = await user_service.get_user_by_email(db, email, tenant_id)
     if not user:
         # Return success to avoid user enumeration
         return {"message": OTP_SENT}
@@ -212,20 +235,22 @@ async def login_otp_init(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
 
     # Send OTP using OTPHandler
-    await OTPHandler.send_otp(email, background_tasks)
+    await OTPHandler.send_otp(email, background_tasks, tenant_id)
 
     return {"message": OTP_SENT}
 
 
-async def login_otp_verify(db: AsyncSession, verify_data: VerifyLoginSchema) -> dict:
+async def login_otp_verify(
+    db: AsyncSession, verify_data: VerifyLoginSchema, tenant_id: UUID | None
+) -> dict:
     """
     Step 2 of Passwordless Login: Verify OTP and issue tokens.
     """
     # Verify OTP
-    await OTPHandler.verify_otp(verify_data.email, verify_data.otp)
+    await OTPHandler.verify_otp(verify_data.email, verify_data.otp, tenant_id)
 
     # Get user
-    user = await user_service.get_user_by_email(db, verify_data.email)
+    user = await user_service.get_user_by_email(db, verify_data.email, tenant_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -242,17 +267,23 @@ async def login_otp_verify(db: AsyncSession, verify_data: VerifyLoginSchema) -> 
 
 
 async def forgot_password(
-    db: AsyncSession, data: ForgotPasswordSchema, background_tasks: BackgroundTasks
+    db: AsyncSession,
+    data: ForgotPasswordSchema,
+    background_tasks: BackgroundTasks,
+    tenant_id: UUID | None,
 ) -> dict:
     """Generate password reset token and send email."""
-    user = await user_service.get_user_by_email(db, data.email)
+    user = await user_service.get_user_by_email(db, data.email, tenant_id)
     if not user:
         # Don't reveal user existence
         return {"message": "If email exists, a reset link has been sent"}
 
     token = secrets.token_urlsafe(32)
 
-    await redis_client.set(f"reset:{token}", str(user.id), expire=RESET_PASSWORD_TTL)
+    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+    await redis_client.set(
+        f"{tenant_prefix}reset:{token}", str(user.id), expire=RESET_PASSWORD_TTL
+    )
 
     subject = "Reset Password"
     body = f"Please reset your password by clicking this link {settings.FRONTEND_URL}/reset-password?token={token}"
@@ -349,9 +380,12 @@ async def logout(db: AsyncSession, user: User, refresh_token_jti: str) -> bool:
     return True
 
 
-async def reset_password(db: AsyncSession, data: ResetPasswordSchema) -> dict:
+async def reset_password(
+    db: AsyncSession, data: ResetPasswordSchema, tenant_id: UUID | None
+) -> dict:
     """Reset password using token."""
-    user_id = await redis_client.get(f"reset:{data.token}")
+    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+    user_id = await redis_client.get(f"{tenant_prefix}reset:{data.token}")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -371,6 +405,6 @@ async def reset_password(db: AsyncSession, data: ResetPasswordSchema) -> dict:
     await db.commit()
 
     # Delete token
-    await redis_client.delete(f"reset:{data.token}")
+    await redis_client.delete(f"{tenant_prefix}reset:{data.token}")
 
     return {"message": "Password reset successful"}

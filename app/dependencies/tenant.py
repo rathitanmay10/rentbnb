@@ -1,6 +1,8 @@
 """Tenant-related dependencies."""
 
-from fastapi import Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import Depends, Header, HTTPException, status
 
 from app.dependencies.user import get_current_user
 from app.enums import TenantStatus
@@ -91,4 +93,24 @@ def verify_tenant_admin_management(current_user: User, target_user: User) -> Non
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions to manage this user",
+        )
+
+
+def get_tenant_id_from_header(
+    x_tenant_id: str | None = Header(None, alias="x-tenant-id"),
+) -> UUID | None:
+    """
+    Extract tenant ID from header.
+    Returns UUID if present and valid, else None.
+    Raises 400 if invalid UUID format.
+    """
+    if not x_tenant_id:
+        return None
+
+    try:
+        return UUID(x_tenant_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid x-tenant-id header format",
         )

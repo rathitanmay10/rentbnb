@@ -9,15 +9,20 @@ from app.schemas import UserCreate, UserUpdate
 from app.utils.password import hash_password
 
 
-async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
+async def create_user(
+    db: AsyncSession, user_data: UserCreate, tenant_id: UUID | None = None
+) -> User:
     """
     Create a new user with case-insensitive uniqueness checks.
 
     Raises:
         ValueError: If email or username already exists, or tenant is invalid
     """
-    # Check email uniqueness (case-insensitive)
-    existing_email = await user_crud.get_user_by_email_ci(db, user_data.email.lower())
+    # Check email uniqueness (case-insensitive) scoped to tenant
+    # For global uniqueness (if tenant_id is None), it checks if email exists where tenant_id is NULL.
+    existing_email = await user_crud.get_user_by_email_ci(
+        db, user_data.email.lower(), tenant_id
+    )
     if existing_email:
         raise ValueError("Email already registered")
 
@@ -50,9 +55,11 @@ async def get_user(db: AsyncSession, user_id: UUID) -> User | None:
     return await user_crud.get_user(db, user_id)
 
 
-async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    """Get user by email (case-insensitive)."""
-    return await user_crud.get_user_by_email_ci(db, email.lower())
+async def get_user_by_email(
+    db: AsyncSession, email: str, tenant_id: UUID | None = None
+) -> User | None:
+    """Get user by email (case-insensitive) and tenant."""
+    return await user_crud.get_user_by_email_ci(db, email.lower(), tenant_id)
 
 
 async def get_users(

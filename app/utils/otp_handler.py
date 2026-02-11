@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import hmac
 import secrets
+from uuid import UUID
 
 from fastapi import BackgroundTasks, HTTPException, status
 
@@ -18,15 +19,18 @@ from app.utils.redis_client import redis_client
 
 class OTPHandler:
     @staticmethod
-    async def send_otp(email: str, background_tasks: BackgroundTasks) -> str:
+    async def send_otp(
+        email: str, background_tasks: BackgroundTasks, tenant_id: UUID | None
+    ) -> str:
         """
         Generates and sends a secure OTP to the given email.
         Enforces cooldown.
         """
+        tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
 
-        cooldown_key = f"otp_cooldown:{email}"
-        otp_key = f"otp:{email}"
-        attempt_key = f"otp_attempts:{email}"
+        cooldown_key = f"{tenant_prefix}otp_cooldown:{email}"
+        otp_key = f"{tenant_prefix}otp:{email}"
+        attempt_key = f"{tenant_prefix}otp_attempts:{email}"
 
         # Enforce cooldown
         if await redis_client.get(cooldown_key):
@@ -54,16 +58,17 @@ class OTPHandler:
         return OTP_SENT
 
     @staticmethod
-    async def verify_otp(email: str, otp: str) -> bool:
+    async def verify_otp(email: str, otp: str, tenant_id: UUID | None) -> bool:
         """
         Verifies the provided OTP.
         Enforces max attempts.
         Returns True if valid, otherwise raises HTTPException.
         """
+        tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
 
-        otp_key = f"otp:{email}"
-        attempt_key = f"otp_attempts:{email}"
-        cooldown_key = f"otp_cooldown:{email}"
+        otp_key = f"{tenant_prefix}otp:{email}"
+        attempt_key = f"{tenant_prefix}otp_attempts:{email}"
+        cooldown_key = f"{tenant_prefix}otp_cooldown:{email}"
 
         stored_otp = await redis_client.get(otp_key)
         # OTP expired or not found

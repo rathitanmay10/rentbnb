@@ -194,9 +194,9 @@ rentbnb/
 - `GET /api/v1/user/` - List users (TENANT_ADMIN sees users in their tenant)
 
 ### Property Management
-- `GET /api/v1/properties/public` - List all active properties (Public access with filters)
+- `GET /api/v1/properties/` - List all active properties (All access with filters)
 - `POST /api/v1/properties/` - Create property (TENANT_ADMIN/MANAGER)
-- `GET /api/v1/properties/` - List internal properties (TENANT_ADMIN/MANAGER)
+- `GET /api/v1/properties/own` - List internal properties (TENANT_ADMIN/MANAGER)
 - `GET /api/v1/properties/{id}` - Get property details
 - `PATCH /api/v1/properties/{id}` - Update property particulars
 - `DELETE /api/v1/properties/{id}` - Soft delete property

@@ -8,7 +8,6 @@ from app.schemas.auth import (
 from app.schemas.tenant import (
     TenantCreate,
     TenantListResponse,
-    TenantRegistrationSchema,
     TenantResponse,
     TenantUpdate,
 )
@@ -28,7 +27,6 @@ __all__ = [
     "SuperAdminUserCreate",
     "TenantCreate",
     "TenantListResponse",
-    "TenantRegistrationSchema",
     "TenantResponse",
     "TenantUpdate",
     "TokenResponse",

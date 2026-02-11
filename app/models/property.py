@@ -22,7 +22,11 @@ class Property(Base, TenantMixin):
     __tablename__ = "properties"
     __table_args__ = (
         UniqueConstraint(
-            "latitude", "longitude", "is_deleted", name="uq_property_lat_lng_deleted"
+            "tenant_id",
+            "latitude",
+            "longitude",
+            "is_deleted",
+            name="uq_property_lat_lng_deleted",
         ),
     )
 

@@ -1,64 +1,16 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.init_db import get_db
 from app.dependencies import require_super_admin, require_tenant_or_super_admin
 from app.enums import UserRole
 from app.models import User
-from app.schemas import (
-    TenantCreate,
-    TenantListResponse,
-    TenantRegistrationSchema,
-    TenantResponse,
-    TenantUpdate,
-)
+from app.schemas import TenantCreate, TenantListResponse, TenantResponse, TenantUpdate
 from app.services import tenant_service
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
-
-
-@router.post(
-    "/register",
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a new tenant with admin user",
-    description="Public endpoint to register a new tenant with admin user. "
-    "Creates tenant and TENANT_ADMIN user in single transaction. "
-    "Admin user requires email verification before login.",
-)
-async def register_tenant(
-    registration_data: TenantRegistrationSchema,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Register a new tenant with admin user.
-
-    - **Public endpoint** - No authentication required
-    - Creates tenant and TENANT_ADMIN user atomically
-    - Company name, email, and username must be unique (case-insensitive)
-    - Email verification required before login (not yet implemented)
-    """
-    try:
-        tenant, admin_user = await tenant_service.create_tenant_with_admin(
-            db,
-            background_tasks,
-            registration_data.company_name,
-            registration_data.admin_username,
-            registration_data.admin_email,
-            registration_data.admin_password,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-    return {
-        "tenant_id": str(tenant.id),
-        "tenant_name": tenant.name,
-        "admin_user_id": str(admin_user.id),
-        "admin_email": admin_user.email,
-        "message": "Tenant registered successfully. Please verify admin email (verification not implemented yet).",
-    }
 
 
 @router.post(
@@ -66,7 +18,7 @@ async def register_tenant(
     response_model=TenantResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new tenant",
-    description="Create a new tenant (SUPER_ADMIN only). Does NOT create admin user.",
+    description="Create a new tenant (SUPER_ADMIN only).",
 )
 async def create_tenant(
     tenant_data: TenantCreate,
@@ -75,8 +27,6 @@ async def create_tenant(
 ):
     """
     Create a new tenant (SUPER_ADMIN only).
-
-    - Does NOT create admin user (use /register for that)
     - Tenant name must be unique (case-insensitive)
     """
     try:

@@ -7,7 +7,6 @@ import aiofiles.os
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logging import logger
 from app.crud import property_crud, user_crud
 from app.enums import UserRole
 from app.models.user import User
@@ -15,12 +14,10 @@ from app.schemas.property import PropertyCreate
 
 UPLOAD_DIR = "uploads"
 
-# Ensure upload directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 async def create_property(db: AsyncSession, user: User, data: PropertyCreate) -> dict:
-    # Role check: Only Tenant Admin or Manager
     if user.role not in [UserRole.TENANT_ADMIN, UserRole.MANAGER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -29,7 +26,6 @@ async def create_property(db: AsyncSession, user: User, data: PropertyCreate) ->
 
     property_data = data.model_dump(exclude={"manager_id"})
 
-    # Check for duplicate property at location
     existing_property = await property_crud.get_property_by_location(
         db, property_data["latitude"], property_data["longitude"]
     )
@@ -116,7 +112,6 @@ async def delete_property_image(
             status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
         )
 
-    # Auth check (check property ownership)
     if not can_edit_property(user, image.property):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
@@ -137,7 +132,7 @@ async def delete_property_image(
         if await aiofiles.os.path.exists(file_path):
             await aiofiles.os.remove(file_path)
     except Exception as e:
-        logger.error(f"Error deleting file {file_path}: {e}")
+        raise e
     await property_crud.delete_image(db, image)
 
 

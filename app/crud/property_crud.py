@@ -81,7 +81,7 @@ async def delete_property(db: AsyncSession, property_obj: Property):
     await db.commit()
 
 
-async def get_public_properties(
+async def get_properties(
     db: AsyncSession,
     skip: int = 0,
     limit: int = 10,
@@ -90,12 +90,14 @@ async def get_public_properties(
     category: str | None = None,
     city: str | None = None,
     guests: int | None = None,
+    tenant_id: UUID | None = None,
 ) -> tuple[list[Property], int]:
 
     query = select(Property).filter(
         Property.is_deleted.is_(False), Property.is_active.is_(True)
     )
-
+    if tenant_id:
+        query = query.filter(Property.tenant_id == tenant_id)
     if min_price:
         query = query.filter(Property.price_per_night >= min_price)
     if max_price:
@@ -148,7 +150,7 @@ async def get_properties_for_user(
     db: AsyncSession, user: User, skip: int = 0, limit: int = 10
 ) -> tuple[list[Property], int]:
     query = select(Property).filter(
-        not Property.is_deleted, Property.tenant_id == user.tenant_id
+        Property.is_deleted.is_(False), Property.tenant_id == user.tenant_id
     )
 
     if user.role == UserRole.MANAGER:
@@ -178,7 +180,7 @@ async def soft_delete_properties_by_tenant(db: AsyncSession, tenant_id: UUID) ->
     stmt = (
         update(Property)
         .where(Property.tenant_id == tenant_id)
-        .where(not Property.is_deleted)
+        .where(Property.is_deleted.is_(False))
         .values(is_deleted=True, deleted_at=datetime.now(UTC))
     )
     await db.execute(stmt)
