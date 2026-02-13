@@ -1,12 +1,17 @@
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud import property_crud
+from app.crud import booking_crud, property_crud
 from app.database.init_db import get_db
-from app.dependencies import get_current_user, require_roles
+from app.dependencies import (
+    get_current_user,
+    require_roles,
+    verify_tenant_property_access,
+)
 from app.enums import UserRole
 from app.models.user import User
 from app.schemas.property import (
@@ -117,3 +122,23 @@ async def delete_property_image(
     user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
 ):
     await property_service.delete_property_image(db, user, property_id, image_id)
+
+
+@router.get("/{property_id}/check_availability", status_code=status.HTTP_200_OK)
+async def check_property_availability(
+    property_id: UUID,
+    check_in: date,
+    check_out: date,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    prop = await property_crud.get_property(db, property_id)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    verify_tenant_property_access(user, prop)
+    booked = await booking_crud.check_availability(db, prop.id, check_in, check_out)
+    if booked:
+        availability = False
+    else:
+        availability = True
+    return {"available": availability}

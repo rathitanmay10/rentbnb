@@ -1,0 +1,59 @@
+import uuid
+from datetime import UTC, date, datetime
+from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.enums import BookingStatus
+from app.schemas.payment import PaymentResponse
+
+
+class BookingBase(BaseModel):
+    property_id: uuid.UUID
+    check_in: date
+    check_out: date
+
+
+class BookingCreate(BookingBase):
+    @field_validator("check_in")
+    @classmethod
+    def check_in_future(cls, v: date) -> date:
+        if v <= datetime.now(UTC).date():
+            raise ValueError("Check-in must be in the future")
+        return v
+
+    @field_validator("check_out")
+    @classmethod
+    def check_out_after_check_in(cls, v: date, info) -> date:
+        if "check_in" in info.data and v <= info.data["check_in"]:
+            raise ValueError("Check-out must be after check-in")
+        return v
+
+
+class BookingResponse(BookingBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    guest_id: uuid.UUID
+    property_manager_id: uuid.UUID
+    status: BookingStatus
+    total_amount: Decimal
+    commission_amount: Decimal
+    expires_at: datetime
+    cancelled_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BookingWithPaymentResponse(BookingResponse):
+    """Booking with payment details."""
+
+    payments: list[PaymentResponse] = []
+
+
+class BookingListResponse(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    data: list[BookingResponse]

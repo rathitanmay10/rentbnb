@@ -82,7 +82,7 @@ async def resend_verify(
     """
     Resend Verification Email
     """
-    result = await auth_service.resend_verfication_email(
+    result = await auth_service.resend_verification_email(
         db, resend_email, background_tasks, tenant_id
     )
     return result

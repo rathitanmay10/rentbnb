@@ -99,7 +99,7 @@ async def upload_property_image(
             await buffer.write(content)
 
     # Save to DB
-    url = f"/static/{property_id}/{new_filename}"
+    url = f"/uploads/{property_id}/{new_filename}"
     return await property_crud.add_property_image(db, property_id, url)
 
 
@@ -118,7 +118,7 @@ async def delete_property_image(
         )
 
     # Delete file from filesystem
-    # URL format: /static/{property_id}/{filename}
+    # URL format: /uploads/{property_id}/{filename}
     # We need to reconstruct the file path.
     # Assuming UPLOAD_DIR is "uploads" and structure is uploads/{property_id}/{filename}
 
