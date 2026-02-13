@@ -37,9 +37,9 @@ async def send_message(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # return await message_service.create_user_message(
-    #     db, current_user, booking_id, message_data.content
-    # )
-    return await message_service.create_system_notification(
-        db, booking_id, message_data.content, current_user.tenant_id
+    return await message_service.create_user_message(
+        db, current_user, booking_id, message_data.content
     )
+    # return await message_service.create_system_notification(
+    #     db, booking_id, message_data.content, current_user.tenant_id
+    # )

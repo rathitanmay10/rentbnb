@@ -34,4 +34,5 @@ async def create_message(db: AsyncSession, message_data: dict) -> Message:
     db.add(message)
     await db.flush()
     await db.refresh(message)
+    await db.commit()
     return message
