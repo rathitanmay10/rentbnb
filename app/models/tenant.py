@@ -16,5 +16,10 @@ class Tenant(Base):
         nullable=False,
     )
 
+    # Relationships
     users = relationship("User", back_populates="tenant", lazy="noload")
     properties = relationship("Property", back_populates="tenant", lazy="select")
+    bookings = relationship("Booking", back_populates="tenant", lazy="noload")
+    payments = relationship("Payment", back_populates="tenant", lazy="noload")
+    messages = relationship("Message", back_populates="tenant", lazy="noload")
+    webhooks = relationship("Webhook", back_populates="tenant", lazy="noload")

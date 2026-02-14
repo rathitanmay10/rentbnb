@@ -8,7 +8,17 @@ from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config.settings import settings
-from app.routers import amenity, auth, property, tenant, user
+from app.routers import (
+    amenity,
+    auth,
+    booking,
+    message,
+    payment,
+    property,
+    tenant,
+    user,
+    websocket,
+)
 from app.utils.exception_handlers import (
     db_exception_handler,
     global_exception_handler,
@@ -55,12 +65,17 @@ app.add_exception_handler(Exception, global_exception_handler)
 # API v1 router
 api_v1 = APIRouter(prefix="/api/v1")
 api_v1.include_router(auth.router)
-api_v1.include_router(tenant.router)
 api_v1.include_router(user.router)
+api_v1.include_router(tenant.router)
 api_v1.include_router(property.router)
 api_v1.include_router(amenity.router)
+api_v1.include_router(booking.router)
+api_v1.include_router(payment.router)
+api_v1.include_router(message.router)
+api_v1.include_router(websocket.router)
 
 app.include_router(api_v1)
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="uploads"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

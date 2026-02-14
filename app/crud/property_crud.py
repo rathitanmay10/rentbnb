@@ -35,7 +35,7 @@ async def get_property(db: AsyncSession, property_id: UUID) -> Property | None:
     query = (
         select(Property)
         .options(selectinload(Property.images), selectinload(Property.amenities))
-        .filter(Property.id == property_id, not Property.is_deleted)
+        .filter(Property.id == property_id, Property.is_deleted.is_(False))
     )
 
     result = await db.execute(query)
@@ -48,7 +48,7 @@ async def get_property_by_location(
     query = select(Property).filter(
         Property.latitude == latitude,
         Property.longitude == longitude,
-        not Property.is_deleted,
+        Property.is_deleted.is_(False),
     )
     result = await db.execute(query)
     return result.scalars().first()

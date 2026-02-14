@@ -12,7 +12,7 @@ from app.enums import UserRole
 from app.models import User
 from app.schemas import UserCreate, UserListResponse, UserResponse, UserUpdate
 from app.services import email_service, user_service
-from app.utils.email_tasks import build_verification_email
+from app.utils.email_utils import build_verification_email
 from app.utils.redis_client import redis_client
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -79,7 +79,10 @@ async def create_user(
 
     email, subject, body = build_verification_email(token, user.email)
     background_tasks.add_task(
-        email_service.email_service.send_email, email, subject, body
+        email_service.email_service.send_email,
+        to_email=email,
+        subject=subject,
+        body=body,
     )
     return user
 

@@ -5,7 +5,7 @@ from email.message import EmailMessage
 
 import aiosmtplib
 
-from app.config import settings
+from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

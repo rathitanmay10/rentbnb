@@ -15,9 +15,7 @@ async def get_user_by_email_ci(
     db: AsyncSession, email: str, tenant_id: UUID | None = None
 ) -> User | None:
     """Get user by email (case-insensitive) and tenant. Email should be pre-lowercased."""
-    query = select(User).where(
-        func.lower(User.email) == email, User.is_deleted.is_(False)
-    )
+    query = select(User).where(User.email == email, User.is_deleted.is_(False))
     if tenant_id:
         query = query.where(User.tenant_id == tenant_id)
     else:
@@ -29,9 +27,7 @@ async def get_user_by_email_ci(
 
 async def get_user_by_username_ci(db: AsyncSession, username: str) -> User | None:
     """Get user by username (case-insensitive). Username should be pre-lowercased."""
-    query = select(User).where(
-        func.lower(User.username) == username, User.is_deleted.is_(False)
-    )
+    query = select(User).where(User.username == username, User.is_deleted.is_(False))
     result = await db.execute(query)
     return result.scalar_one_or_none()
 

@@ -30,8 +30,12 @@ from app.schemas.auth import (
     ResetPasswordSchema,
     VerifyLoginSchema,
 )
-from app.services import email_service, user_service
-from app.utils.email_tasks import build_verification_email
+from app.services import user_service
+from app.services.email_service import email_service
+from app.utils.email_utils import (
+    build_reset_password_email,
+    build_verification_email,
+)
 from app.utils.jwt_handler import create_access_token, create_refresh_token
 from app.utils.otp_handler import OTPHandler
 from app.utils.password import hash_password, verify_password
@@ -86,7 +90,7 @@ async def register_user(
 
     email, subject, body = build_verification_email(token, user.email)
     background_tasks.add_task(
-        email_service.email_service.send_email, email, subject, body
+        email_service.send_email, to_email=email, subject=subject, body=body
     )
 
     return {
@@ -94,7 +98,7 @@ async def register_user(
     }
 
 
-async def resend_verfication_email(
+async def resend_verification_email(
     db: AsyncSession,
     data: EmailOnlySchema,
     background_tasks: BackgroundTasks,
@@ -127,7 +131,7 @@ async def resend_verfication_email(
 
     email, subject, body = build_verification_email(token, user.email)
     background_tasks.add_task(
-        email_service.email_service.send_email, email, subject, body
+        email_service.send_email, to_email=email, subject=subject, body=body
     )
     return {
         "message": "Email sent, please check your email to verify your account.",
@@ -259,6 +263,13 @@ async def login_otp_verify(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
 
+    # Check if tenant is active (if user has a tenant)
+    if user.tenant_id and user.tenant:
+        if user.tenant.is_deleted or user.tenant.status == TenantStatus.INACTIVE:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is inactive"
+            )
+
     # Issue tokens
     access_token = create_access_token(user)
     refresh_token = create_refresh_token(user)
@@ -285,10 +296,9 @@ async def forgot_password(
         f"{tenant_prefix}reset:{token}", str(user.id), expire=RESET_PASSWORD_TTL
     )
 
-    subject = "Reset Password"
-    body = f"Please reset your password by clicking this link {settings.FRONTEND_URL}/reset-password?token={token}"
+    email, subject, body = build_reset_password_email(token, user.email)
     background_tasks.add_task(
-        email_service.email_service.send_email, user.email, subject, body
+        email_service.send_email, to_email=email, subject=subject, body=body
     )
 
     return {"message": "If email exists, a reset link has been sent"}

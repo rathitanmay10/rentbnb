@@ -1,4 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
@@ -18,3 +19,16 @@ async_session = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
 )
+
+
+def get_task_engine():
+    """
+    Creates a fresh engine for Celery tasks.
+    Using NullPool ensures connections aren't kept in a
+    global state that tries to outlive the event loop.
+    """
+    return create_async_engine(
+        settings.DATABASE_URL,
+        poolclass=NullPool,
+        echo=settings.DEBUG,
+    )

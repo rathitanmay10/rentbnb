@@ -9,6 +9,10 @@ A modern, scalable backend for a property rental management platform built with 
 - **Email Verification**: Automated email-based account verification
 - **Password Management**: Secure password hashing with bcrypt, forgot password/reset flow
 - **Property Management**: Complete property lifecycle management with amenities and images
+- **Booking System**: Full booking lifecycle management with availability checks and status tracking
+- **Payment Integration**: Secure payments via Razorpay with refund handling and webhook support
+- **Real-time Messaging**: WebSocket-based chat system for instant communication
+- **Background Processes**: Asynchronous task processing using Celery (emails, refunds)
 - **Image Handling**: Secure image uploads with UUID filenames and static file serving
 - **Role-Based Access Control**: Support for SUPER_ADMIN, TENANT_ADMIN, MANAGER, and GUEST roles
 - **Database Migrations**: Automated schema versioning with Alembic
@@ -23,6 +27,8 @@ A modern, scalable backend for a property rental management platform built with 
 - **Framework**: FastAPI 0.128+
 - **Database**: PostgreSQL with async support (asyncpg)
 - **Cache**: Redis 7.1+
+- **Task Queue**: Celery 5.3+
+- **Payment Gateway**: Razorpay
 - **Authentication**: JWT with bcrypt password hashing
 - **ORM**: SQLAlchemy 2.0+
 - **Migrations**: Alembic 1.18+
@@ -94,6 +100,11 @@ A modern, scalable backend for a property rental management platform built with 
    EMAILS_FROM_EMAIL=noreply@rentbnb.com
    EMAILS_FROM_NAME=RentBnB
 
+   # Payments (Razorpay)
+   RAZORPAY_KEY_ID=rzp_test_...
+   RAZORPAY_KEY_SECRET=your-secret-key
+   RAZORPAY_WEBHOOK_SECRET=your-webhook-secret
+
    # Development
    DEBUG=false
    ```
@@ -133,7 +144,17 @@ A modern, scalable backend for a property rental management platform built with 
 
    The API will be available at `http://localhost:8000`
 
-3. **Access interactive API documentation**
+3. **Start Celery Worker** (for background tasks)
+   ```bash
+   celery -A app.celery_app worker --loglevel=info
+   ```
+
+4. **Start Celery Beat** (for scheduled tasks)
+   ```bash
+   celery -A app.celery_app beat --loglevel=info
+   ```
+
+5. **Access interactive API documentation**
    - Swagger UI: `http://localhost:8000/docs`
    - ReDoc: `http://localhost:8000/redoc`
 
@@ -164,49 +185,6 @@ rentbnb/
 └── pyproject.toml       # Project metadata and dependencies
 ```
 
-## API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/register` - Register new user (creates SUPER_ADMIN or TENANT_ADMIN)
-- `POST /api/v1/auth/verify-email` - Verify email with token
-- `POST /api/v1/auth/resend-verification-email` - Resend verification email
-- `POST /api/v1/auth/login` - Login with email and password
-- `POST /api/v1/auth/login-otp` - Initiate passwordless login (send OTP)
-- `POST /api/v1/auth/verify-otp` - Verify OTP and get tokens
-- `POST /api/v1/auth/refresh` - Refresh access token using refresh token
-- `POST /api/v1/auth/change-password` - Change password for authenticated user
-- `POST /api/v1/auth/forgot-password` - Request password reset email
-- `POST /api/v1/auth/reset-password` - Reset password with token
-- `POST /api/v1/auth/logout` - Logout and blacklist tokens
-
-### Tenant Management
-- `POST /api/v1/tenant/` - Create new tenant (SUPER_ADMIN only)
-- `GET /api/v1/tenant/` - List tenants (SUPER_ADMIN sees all, TENANT_ADMIN sees own)
-- `GET /api/v1/tenant/{id}` - Get tenant details
-- `PUT /api/v1/tenant/{id}` - Update tenant
-- `DELETE /api/v1/tenant/{id}` - Soft delete tenant and associated users (SUPER_ADMIN only)
-
-### User Management
-- `GET /api/v1/user/me` - Get current user profile
-- `PUT /api/v1/user/me` - Update current user profile
-- `GET /api/v1/user/{id}` - Get user details (TENANT_ADMIN can see users in their tenant)
-- `POST /api/v1/user/` - Create user (TENANT_ADMIN can create users in their tenant)
-- `GET /api/v1/user/` - List users (TENANT_ADMIN sees users in their tenant)
-
-### Property Management
-- `GET /api/v1/properties/` - List all active properties (All access with filters)
-- `POST /api/v1/properties/` - Create property (TENANT_ADMIN/MANAGER)
-- `GET /api/v1/properties/own` - List internal properties (TENANT_ADMIN/MANAGER)
-- `GET /api/v1/properties/{id}` - Get property details
-- `PATCH /api/v1/properties/{id}` - Update property particulars
-- `DELETE /api/v1/properties/{id}` - Soft delete property
-- `POST /api/v1/properties/{id}/images` - Upload property image
-- `DELETE /api/v1/properties/{id}/images/{image_id}` - Delete property image
-
-### Amenity Management
-- `GET /api/v1/amenities/` - List all amenities
-- `POST /api/v1/amenities/` - Create amenity (SUPER_ADMIN only)
-
 ## Authentication & Security
 
 ### User Roles
@@ -232,19 +210,6 @@ rentbnb/
 - Multi-tenant isolation at database level
 
 ## Development
-
-### Code Quality Tools
-
-- **Ruff**: Fast Python linter and formatter
-  ```bash
-  ruff check .          # Lint
-  ruff format .         # Format
-  ```
-
-- **isort**: Import sorting
-  ```bash
-  isort .
-  ```
 
 ### Database Migrations
 

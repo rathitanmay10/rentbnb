@@ -6,7 +6,7 @@ from fastapi import Depends, Header, HTTPException, status
 
 from app.dependencies.user import get_current_user
 from app.enums import TenantStatus
-from app.models import Tenant, User
+from app.models import Property, Tenant, User
 
 
 async def get_current_tenant(current_user: User = Depends(get_current_user)) -> Tenant:
@@ -113,4 +113,19 @@ def get_tenant_id_from_header(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid x-tenant-id header format",
+        )
+
+
+def verify_tenant_property_access(current_user: User, property: Property) -> None:
+    """
+    Verify if current_user can access the property.
+    Raises 404 (Not Found) if access is denied to avoid leaking existence.
+    """
+
+    if current_user.tenant_id == property.tenant_id:
+        return
+
+    if current_user.tenant_id != property.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )

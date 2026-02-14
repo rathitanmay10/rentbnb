@@ -69,3 +69,4 @@ class Property(Base, TenantMixin):
         back_populates="properties",
         lazy="selectin",
     )
+    bookings = relationship("Booking", back_populates="property", lazy="noload")
