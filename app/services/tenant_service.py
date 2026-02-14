@@ -12,7 +12,6 @@ async def create_tenant(db: AsyncSession, tenant_data: TenantCreate) -> Tenant:
     """
     Create a new tenant with case-insensitive uniqueness check.
     """
-    # Check for duplicate tenant name
     existing_tenant = await tenant_crud.get_tenant_by_name_ci(
         db, tenant_data.name.lower()
     )

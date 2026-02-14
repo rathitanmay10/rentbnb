@@ -128,7 +128,9 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
             payments = await payment_crud.get_payments_by_booking(db, booking.id)
             for payment in payments:
                 if payment.status == PaymentStatus.PAID:
-                    await payment_service.process_refund(db, payment.id)
+                    from app.tasks.payment_tasks import refund_payment_task
+
+                    refund_payment_task.delay(str(payment.id))
 
     await booking_crud.update_booking(
         db,
@@ -171,12 +173,10 @@ async def expire_booking(booking_id: UUID, db: AsyncSession):
 
         await db.commit()
 
-        # Notify via websocket
         await message_service.create_system_notification(
             db, booking.id, "Booking expired.", booking.tenant_id
         )
 
-        # Notify via email
         guest = await user_crud.get_user(db, booking.guest_id)
         if guest and guest.email:
             property_obj = await property_crud.get_property(db, booking.property_id)

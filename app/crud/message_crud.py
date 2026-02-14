@@ -13,7 +13,7 @@ async def get_messages_by_booking(
     query = (
         select(Message)
         .where(Message.booking_id == booking_id)
-        .order_by(Message.created_at.asc())
+        .order_by(Message.created_at.desc())
         .offset(skip)
         .limit(limit)
     )

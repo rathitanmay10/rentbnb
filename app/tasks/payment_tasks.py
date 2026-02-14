@@ -40,3 +40,17 @@ async def reconcile_pending_payments(db):
 
     except Exception as exc:
         logger.error(f"Reconciliation task failed: {exc}")
+
+
+@celery_app.task(bind=True, max_retries=5)
+@db_async_task
+async def refund_payment_task(db, self, payment_id: str):
+    """
+    Celery task to process refund for a payment.
+    """
+    try:
+        await payment_service.process_refund(db, UUID(payment_id))
+        await db.commit()
+    except Exception as exc:
+        logger.error(f"Refund task failed for payment {payment_id}: {exc}")
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))

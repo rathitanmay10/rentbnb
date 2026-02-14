@@ -23,4 +23,6 @@ class MessageResponse(BaseModel):
 
 class MessageListResponse(BaseModel):
     total: int
+    skip: int
+    limit: int
     data: list[MessageResponse]
