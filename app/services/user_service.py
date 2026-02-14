@@ -1,8 +1,9 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud import user_crud
+from app.crud import booking_crud, user_crud
 from app.enums import UserRole
 from app.models import User
 from app.schemas import UserCreate, UserUpdate
@@ -102,9 +103,21 @@ async def update_user(
         raise e
 
 
-async def delete_user(db: AsyncSession, user_id: UUID) -> bool:
+async def delete_user(db: AsyncSession, target_user: User) -> bool:
     """Soft delete a user."""
-    success = await user_crud.soft_delete_user(db, user_id)
+    if target_user.role == UserRole.SUPER_ADMIN:
+        raise ValueError("Super admin cannot be deleted")
+    if target_user.role in [UserRole.TENANT_ADMIN, UserRole.MANAGER]:
+        booking = await booking_crud.get_tenant_future_bookings(db, target_user.id)
+        if booking:
+            raise ValueError("User has future bookings, cannot delete")
+    if target_user.role == UserRole.GUEST:
+        booking = await booking_crud.get_bookings(
+            db, guest_id=target_user.id, check_in=datetime.now(UTC).date(), active=True
+        )
+        if booking:
+            raise ValueError("User has future bookings, cannot delete")
+    success = await user_crud.soft_delete_user(db, target_user.id)
     if success:
         await db.commit()
     return success

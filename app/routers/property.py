@@ -104,6 +104,16 @@ async def update_property(
     return await property_crud.update_property(db, prop, data)
 
 
+@router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_property(
+    property_id: UUID,
+    user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
+    db: AsyncSession = Depends(get_db),
+):
+    await property_service.delete_property(db, user, property_id)
+    return
+
+
 @router.post("/{property_id}/images")
 async def upload_image(
     property_id: UUID,

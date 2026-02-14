@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +24,8 @@ async def list_amenities(
     """
     List all amenities
     """
-    return await amenity_crud.get_all_amenities(db)
+    amenities = await amenity_crud.get_all_amenities(db)
+    return {"amenities": amenities}
 
 
 @router.post("/", response_model=AmenityResponse, status_code=status.HTTP_201_CREATED)
@@ -43,7 +46,7 @@ async def create_amenity(
 
 @router.get("/{id}", response_model=AmenityResponse)
 async def get_amenity_by_id(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -55,7 +58,7 @@ async def get_amenity_by_id(
 
 @router.put("/{id}", response_model=AmenityResponse)
 async def update_amenity_by_id(
-    id: int,
+    id: UUID,
     data: AmenityUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_super_admin),
@@ -70,11 +73,9 @@ async def update_amenity_by_id(
     return await amenity_crud.update_amenity(db, id, data.name)
 
 
-@router.delete(
-    "/{id}", response_model=AmenityResponse, status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_amenity_by_id(
-    id: int,
+    id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_super_admin),
 ):
@@ -82,6 +83,7 @@ async def delete_amenity_by_id(
     Delete an amenity by ID
     """
     try:
-        return await amenity_crud.delete_amenity(db, id)
+        await amenity_crud.delete_amenity(db, id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return

@@ -15,12 +15,14 @@ async def create_amenity(db: AsyncSession, name: str) -> Amenity:
 
 
 async def get_amenity_by_name(db: AsyncSession, name: str) -> Amenity | None:
-    result = await db.execute(select(Amenity).filter(Amenity.name == name))
+    result = await db.execute(
+        select(Amenity).filter(Amenity.name == name, Amenity.is_deleted.is_(False))
+    )
     return result.scalars().first()
 
 
 async def get_all_amenities(db: AsyncSession) -> list[Amenity]:
-    result = await db.execute(select(Amenity))
+    result = await db.execute(select(Amenity).filter(Amenity.is_deleted.is_(False)))
     return list(result.scalars().all())
 
 
@@ -40,18 +42,16 @@ async def update_amenity(
     return amenity
 
 
-async def delete_amenity(db: AsyncSession, amenity_id: UUID) -> Amenity | None:
+async def delete_amenity(db: AsyncSession, amenity_id: UUID) -> None:
     amenity = await get_amenity(db, amenity_id)
     if not amenity:
         return None
 
-    # Check if amenity is in use
     result = await db.execute(
         select(PropertyAmenity).where(PropertyAmenity.amenity_id == amenity_id)
     )
     if result.first():
         raise ValueError("Cannot delete amenity that is in use by properties")
 
-    await db.delete(amenity)
+    amenity.soft_delete()
     await db.commit()
-    return amenity

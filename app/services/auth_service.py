@@ -32,10 +32,7 @@ from app.schemas.auth import (
 )
 from app.services import user_service
 from app.services.email_service import email_service
-from app.utils.email_utils import (
-    build_reset_password_email,
-    build_verification_email,
-)
+from app.utils.email_utils import build_reset_password_email, build_verification_email
 from app.utils.jwt_handler import create_access_token, create_refresh_token
 from app.utils.otp_handler import OTPHandler
 from app.utils.password import hash_password, verify_password

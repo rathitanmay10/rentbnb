@@ -1,6 +1,7 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User
@@ -93,18 +94,14 @@ async def soft_delete_user(db: AsyncSession, user_id: UUID) -> bool:
 
 
 async def soft_delete_users_by_tenant(db: AsyncSession, tenant_id: UUID) -> int:
-    """Soft delete all users belonging to a tenant. Returns count of deleted users."""
-    query = select(User).where(User.tenant_id == tenant_id, User.is_deleted.is_(False))
-    result = await db.execute(query)
-    users = result.scalars().all()
-
-    count = 0
-    for user in users:
-        user.soft_delete()
-        count += 1
-
+    """Soft delete all users belonging to a tenant."""
+    query = (
+        update(User)
+        .where(User.tenant_id == tenant_id, User.is_deleted.is_(False))
+        .values(is_deleted=True, deleted_at=datetime.now(UTC))
+    )
+    await db.execute(query)
     await db.flush()
-    return count
 
 
 async def increment_token_version(db: AsyncSession, user_id: UUID) -> bool:

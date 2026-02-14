@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -8,8 +8,15 @@ from app.models.base import Base
 
 class Amenity(Base):
     __tablename__ = "amenities"
-
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    __table_args__ = (
+        Index(
+            "uq_amenity_name_active",
+            "name",
+            unique=True,
+            postgresql_where=text("is_deleted IS FALSE"),
+        ),
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Relationships
     properties = relationship(

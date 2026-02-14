@@ -116,7 +116,7 @@ async def update_tenant(
 
 @router.delete(
     "/{tenant_id}",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft delete tenant",
     description="Soft delete a tenant and all associated users (SUPER_ADMIN only).",
 )
@@ -136,4 +136,4 @@ async def delete_tenant(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
         )
-    return {"message": "Tenant and associated users soft deleted successfully"}
+    return
