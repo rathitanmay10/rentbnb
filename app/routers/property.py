@@ -80,6 +80,7 @@ async def get_property(
     prop = await property_crud.get_property(db, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    verify_tenant_property_access(user, prop)
     return prop
 
 

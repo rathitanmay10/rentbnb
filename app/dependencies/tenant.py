@@ -122,17 +122,9 @@ def verify_tenant_property_access(current_user: User, property: Property) -> Non
     Raises 404 (Not Found) if access is denied to avoid leaking existence.
     """
 
-    # 1. User accessing themselves -> ALLOW
     if current_user.tenant_id == property.tenant_id:
         return
 
-    # 2. Guest (No Tenant, Not Super Admin) -> DENY
-    if current_user.tenant_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
-    # 3. Different Tenant -> DENY
     if current_user.tenant_id != property.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"

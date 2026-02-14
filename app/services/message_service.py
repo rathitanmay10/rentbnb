@@ -81,6 +81,7 @@ async def create_system_notification(
             "message": {
                 "id": str(message.id),
                 "content": message.content,
+                "sender_id": None,
                 "created_at": message.created_at.isoformat(),
                 "type": message.message_type,
             },
