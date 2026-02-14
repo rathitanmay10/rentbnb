@@ -61,3 +61,17 @@ def validate_tenant_name(v: str | None) -> str | None:
     if len(v) < 5:
         raise ValueError("Tenant name must be at least 5 characters long")
     return v
+
+
+def validate_amenity_name(v: str) -> str:
+    """
+    Validate amenity name.
+
+    Rules:
+    - Minimum 2 characters
+    - Normalized to lowercase
+    """
+    v = v.strip().lower()
+    if len(v) < 2:
+        raise ValueError("Amenity name must be at least 2 characters long")
+    return v

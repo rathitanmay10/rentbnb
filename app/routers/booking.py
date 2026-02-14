@@ -28,6 +28,9 @@ async def create_booking(
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Create a new booking
+    """
     return await booking_service.create_booking(db, current_user, booking_data)
 
 
@@ -38,6 +41,9 @@ async def list_my_bookings(
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    List all bookings for the current user
+    """
     bookings = await booking_crud.get_bookings(
         db,
         skip=skip,
@@ -59,6 +65,9 @@ async def get_booking(
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Get a booking by ID
+    """
     booking = await booking_crud.get_booking(db, booking_id)
     if not booking:
         raise HTTPException(
@@ -77,4 +86,7 @@ async def cancel_booking(
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Cancel a booking
+    """
     return await booking_service.cancel_booking(db, booking_id, current_user)

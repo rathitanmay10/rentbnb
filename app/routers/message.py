@@ -20,6 +20,9 @@ async def get_messages(
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Get all messages for a booking
+    """
     messages, total = await message_service.get_booking_messages(
         db, current_user, booking_id, skip, limit
     )
@@ -33,6 +36,9 @@ async def send_message(
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Send a message
+    """
     return await message_service.create_user_message(
         db, current_user, booking_id, message_data.content
     )

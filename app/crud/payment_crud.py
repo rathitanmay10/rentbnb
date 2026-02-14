@@ -28,9 +28,13 @@ async def get_payment_by_razorpay_payment_id(
     return result.scalar_one_or_none()
 
 
-async def get_payments_by_booking(db: AsyncSession, booking_id: UUID) -> list[Payment]:
+async def get_payments_by_booking(
+    db: AsyncSession, booking_id: UUID, tenant_id: UUID | None = None
+) -> list[Payment]:
     """Get all payments for a booking."""
     query = select(Payment).where(Payment.booking_id == booking_id)
+    if tenant_id:
+        query = query.where(Payment.tenant_id == tenant_id)
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -76,8 +80,6 @@ async def get_payments_to_poll(
     conditions = []
 
     for min_age, max_age in time_windows:
-        # Created between (now - max_age) and (now - min_age)
-        # e.g. window (2, 5) => created between 5 mins ago and 2 mins ago
         start_time = now - timedelta(minutes=max_age)
         end_time = now - timedelta(minutes=min_age)
         conditions.append(
