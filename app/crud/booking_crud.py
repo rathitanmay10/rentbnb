@@ -21,6 +21,9 @@ async def get_bookings(
     tenant_id: UUID | None = None,
     property_id: UUID | None = None,
     status: BookingStatus | None = None,
+    check_in: date | None = None,
+    check_out: date | None = None,
+    active: bool | None = None,
 ) -> list[Booking]:
     """Get bookings with filters."""
     query = select(Booking).where(Booking.tenant_id == tenant_id)
@@ -31,6 +34,14 @@ async def get_bookings(
         query = query.where(Booking.property_id == property_id)
     if status:
         query = query.where(Booking.status == status)
+    if check_in:
+        query = query.where(Booking.check_in >= check_in)
+    if check_out:
+        query = query.where(Booking.check_out <= check_out)
+    if active:
+        query = query.where(
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
+        )
 
     query = query.order_by(Booking.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
@@ -136,6 +147,15 @@ async def get_future_bookings_by_tenant(
         Booking.tenant_id == tenant_id,
         Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
         Booking.check_in > datetime.now(UTC).date(),
+    )
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+async def get_tenant_future_bookings(db: AsyncSession, user_id: UUID) -> list[Booking]:
+    """Get all bookings for a tenant."""
+    query = select(Booking).where(
+        Booking.manager_id == user_id, Booking.check_in > datetime.now(UTC).date()
     )
     result = await db.execute(query)
     return list(result.scalars().all())

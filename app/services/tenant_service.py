@@ -1,8 +1,9 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud import property_crud, tenant_crud, user_crud
+from app.crud import booking_crud, property_crud, tenant_crud, user_crud
 from app.enums import UserRole
 from app.models import Tenant, User
 from app.schemas import TenantCreate, TenantUpdate
@@ -80,6 +81,15 @@ async def soft_delete_tenant_cascade(db: AsyncSession, tenant_id: UUID) -> bool:
     Returns:
         True if successful, False if tenant not found
     """
+    tenant = await tenant_crud.get_tenant(db, tenant_id)
+    if not tenant:
+        return False
+    booking = await booking_crud.get_bookings(
+        db, tenant_id=tenant_id, check_in=datetime.now(UTC).date(), active=True
+    )
+    if booking:
+        raise ValueError("Tenant has future bookings, cannot delete")
+
     await user_crud.soft_delete_users_by_tenant(db, tenant_id)
     await property_crud.soft_delete_properties_by_tenant(db, tenant_id)
     success = await tenant_crud.soft_delete_tenant(db, tenant_id)

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,8 +12,20 @@ from app.models.base import Base
 class User(Base):
     __tablename__ = "users"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "email", name="uq_tenant_email"),
-        UniqueConstraint("tenant_id", "username", name="uq_tenant_username"),
+        Index(
+            "uq_tenant_email_active",
+            "tenant_id",
+            "email",
+            unique=True,
+            postgresql_where=text("is_deleted IS FALSE"),
+        ),
+        Index(
+            "uq_tenant_username_active",
+            "tenant_id",
+            "username",
+            unique=True,
+            postgresql_where=text("is_deleted IS FALSE"),
+        ),
     )
     username: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)

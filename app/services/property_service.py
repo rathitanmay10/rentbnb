@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import UTC, datetime
 from uuid import UUID
 
 import aiofiles
@@ -7,7 +8,7 @@ import aiofiles.os
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud import property_crud, user_crud
+from app.crud import booking_crud, property_crud, user_crud
 from app.enums import UserRole
 from app.models.user import User
 from app.schemas.property import PropertyCreate
@@ -60,6 +61,28 @@ async def create_property(db: AsyncSession, user: User, data: PropertyCreate) ->
     property_data["managed_by"] = target_manager_id
 
     return await property_crud.create_property(db, property_data)
+
+
+async def delete_property(db: AsyncSession, user: User, property_id: UUID):
+    prop = await property_crud.get_property(db, property_id)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if not can_edit_property(user, prop):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to delete this property"
+        )
+    booking = await booking_crud.get_bookings(
+        db,
+        tenant_id=user.tenant_id,
+        property_id=prop.id,
+        check_in=datetime.now(UTC).date(),
+        active=True,
+    )
+    if booking:
+        raise HTTPException(
+            status_code=400, detail="Property has future bookings, cannot delete"
+        )
+    await property_crud.delete_property(db, prop)
 
 
 async def upload_property_image(

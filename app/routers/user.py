@@ -189,7 +189,7 @@ async def update_user(
 
 @router.delete(
     "/{user_id}",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_404_NOT_FOUND,
     summary="Soft delete user",
 )
 async def delete_user(
@@ -210,13 +210,16 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    # Check permissions
+    if target_user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="You cannot delete yourself"
+        )
     if current_user.role == UserRole.TENANT_ADMIN:
         verify_tenant_admin_management(current_user, target_user)
 
-    success = await user_service.delete_user(db, user_id)
+    success = await user_service.delete_user(db, target_user)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    return {"message": "User soft deleted successfully"}
+    return
