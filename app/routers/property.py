@@ -9,6 +9,7 @@ from app.crud import booking_crud, property_crud
 from app.database.init_db import get_db
 from app.dependencies import (
     get_current_user,
+    get_tenant_user,
     require_roles,
     verify_tenant_property_access,
 )
@@ -74,7 +75,7 @@ async def list_properties(
 @router.get("/{property_id}", response_model=PropertyResponse)
 async def get_property(
     property_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
     prop = await property_crud.get_property(db, property_id)
@@ -131,7 +132,7 @@ async def check_property_availability(
     check_in: date,
     check_out: date,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_tenant_user),
 ):
     prop = await property_crud.get_property(db, property_id)
     if not prop:

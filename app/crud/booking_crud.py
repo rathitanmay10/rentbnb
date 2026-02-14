@@ -23,12 +23,10 @@ async def get_bookings(
     status: BookingStatus | None = None,
 ) -> list[Booking]:
     """Get bookings with filters."""
-    query = select(Booking)
+    query = select(Booking).where(Booking.tenant_id == tenant_id)
 
     if guest_id:
         query = query.where(Booking.guest_id == guest_id)
-    if tenant_id:
-        query = query.where(Booking.tenant_id == tenant_id)
     if property_id:
         query = query.where(Booking.property_id == property_id)
     if status:
@@ -45,12 +43,10 @@ async def get_bookings_count(
     tenant_id: UUID | None = None,
 ) -> int:
     """Get total count of bookings."""
-    query = select(func.count(Booking.id))
+    query = select(func.count(Booking.id)).where(Booking.tenant_id == tenant_id)
 
     if guest_id:
         query = query.where(Booking.guest_id == guest_id)
-    if tenant_id:
-        query = query.where(Booking.tenant_id == tenant_id)
 
     result = await db.execute(query)
     return result.scalar_one()

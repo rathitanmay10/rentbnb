@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.init_db import get_db
-from app.dependencies.user import get_current_user
+from app.dependencies.tenant import get_tenant_user
 from app.models import User
 from app.schemas.message import MessageCreate, MessageListResponse, MessageResponse
 from app.services import message_service
@@ -17,7 +17,7 @@ async def get_messages(
     booking_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
     messages, total = await message_service.get_booking_messages(
@@ -30,7 +30,7 @@ async def get_messages(
 async def send_message(
     booking_id: UUID,
     message_data: MessageCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await message_service.create_user_message(

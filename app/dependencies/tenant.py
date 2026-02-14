@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
 
+from app.constants.messages import NOT_FOUND
 from app.dependencies.user import get_current_user
 from app.enums import TenantStatus
 from app.models import Property, Tenant, User
@@ -32,19 +33,19 @@ async def get_current_tenant(current_user: User = Depends(get_current_user)) -> 
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found",
+            detail="User Tenant not found",
         )
 
     if tenant.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tenant has been deleted",
+            detail="User Tenant has been deleted",
         )
 
     if tenant.status == TenantStatus.INACTIVE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tenant is inactive",
+            detail="User Tenant is inactive",
         )
 
     return tenant
@@ -126,6 +127,18 @@ def verify_tenant_property_access(current_user: User, property: Property) -> Non
         return
 
     if current_user.tenant_id != property.tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+
+
+def get_tenant_user(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Get current user's tenant and validate it's active.
+    """
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    tenant = get_current_tenant(current_user)
+    if not tenant:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User Tenant not found"
         )
+    return current_user

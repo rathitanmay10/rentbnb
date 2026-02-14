@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.settings import settings
 from app.crud import payment_crud
 from app.database.init_db import get_db
-from app.dependencies.user import get_current_user
+from app.dependencies.tenant import get_tenant_user
 from app.models import User
 from app.schemas.payment import PaymentResponse
 from app.services import payment_service
@@ -122,8 +122,13 @@ async def webhook(request: Request, db: AsyncSession = Depends(get_db)):
 @router.get("/booking/{booking_id}", response_model=list[PaymentResponse])
 async def get_booking_payments(
     booking_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
+
     payments = await payment_crud.get_payments_by_booking(db, booking_id)
+    if payments.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Payments not found"
+        )
     return payments

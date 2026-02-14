@@ -118,10 +118,8 @@ async def websocket_endpoint(
 
         try:
             while True:
-                # Receive message from client
                 data = await websocket.receive_text()
 
-                # Save message to database
                 from app.services import message_service
 
                 await message_service.create_user_message(
@@ -131,18 +129,6 @@ async def websocket_endpoint(
                     content=data,
                 )
 
-                # Broadcast to all connected users in this booking
-                # await manager.broadcast(
-                #     str(booking_id),
-                #     {
-                #         "id": str(message.id),
-                #         "booking_id": str(message.booking_id),
-                #         "sender_id": str(message.sender_id),
-                #         "content": message.content,
-                #         "message_type": message.message_type.value,
-                #         "created_at": message.created_at.isoformat(),
-                #     }
-                # )
         except WebSocketDisconnect:
             manager.disconnect(str(booking_id), websocket)
 

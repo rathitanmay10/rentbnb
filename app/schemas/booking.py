@@ -30,6 +30,16 @@ class BookingCreate(BookingBase):
         return v
 
 
+class BookingCreateResponse(BaseModel):
+    booking_id: uuid.UUID
+    payment_id: uuid.UUID
+    status: BookingStatus
+    total_amount: Decimal
+    expires_at: datetime
+    razorpay_order_id: str
+    razorpay_key_id: str
+
+
 class BookingResponse(BookingBase):
     id: uuid.UUID
     tenant_id: uuid.UUID
