@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import Depends, Header, HTTPException, status
 
 from app.constants.messages import NOT_FOUND
+from app.crud import tenant_crud
 from app.dependencies.user import get_current_user
 from app.enums import TenantStatus
 from app.models import Property, Tenant, User
@@ -58,21 +59,17 @@ def verify_tenant_access(current_user: User, target_user: User) -> None:
     """
     from app.enums import UserRole  # Avoid circular import if possible
 
-    # 1. User accessing themselves -> ALLOW
     if current_user.id == target_user.id:
         return
 
-    # 2. Super Admin -> ALLOW (assuming they manage users)
     if current_user.role == UserRole.SUPER_ADMIN:
         return
 
-    # 3. Guest (No Tenant, Not Super Admin) -> DENY
     if current_user.tenant_id is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    # 4. Different Tenant -> DENY
     if current_user.tenant_id != target_user.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -85,11 +82,8 @@ def verify_tenant_admin_management(current_user: User, target_user: User) -> Non
     """
     from app.enums import UserRole
 
-    # Must be same tenant
     verify_tenant_access(current_user, target_user)
 
-    # Tenant Admin cannot manage other Tenant Admins (unless self, handled above)
-    # or Super Admins (impossible by tenant check usually, but good to be safe)
     if target_user.role in [UserRole.TENANT_ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -97,24 +91,32 @@ def verify_tenant_admin_management(current_user: User, target_user: User) -> Non
         )
 
 
-def get_tenant_id_from_header(
-    x_tenant_id: str | None = Header(None, alias="x-tenant-id"),
+async def get_tenant_id_from_header(
+    tenant_id: str | None = Header(None, alias="tenant-id"),
 ) -> UUID | None:
     """
     Extract tenant ID from header.
     Returns UUID if present and valid, else None.
     Raises 400 if invalid UUID format.
     """
-    if not x_tenant_id:
+    if not tenant_id:
         return None
 
     try:
-        return UUID(x_tenant_id)
+        return UUID(tenant_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid x-tenant-id header format",
+            detail="Invalid tenant-id header format",
         )
+    tenant = await tenant_crud.get_tenant(tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    if tenant.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    if tenant.status == TenantStatus.INACTIVE:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    return tenant_id
 
 
 def verify_tenant_property_access(current_user: User, property: Property) -> None:

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import booking_crud, property_crud
 from app.database.init_db import get_db
 from app.dependencies import (
-    get_current_user,
+    get_tenant_id_from_header,
     get_tenant_user,
     require_roles,
     verify_tenant_property_access,
@@ -62,10 +62,9 @@ async def list_properties(
     category: PropertyCategory | None = Query(None),
     city: str | None = Query(None),
     guests: int | None = Query(None, ge=1),
-    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_tenant_id_from_header),
     db: AsyncSession = Depends(get_db),
 ):
-    tenant_id = current_user.tenant_id
     properties, total = await property_crud.get_properties(
         db, skip, limit, min_price, max_price, category, city, guests, tenant_id
     )
