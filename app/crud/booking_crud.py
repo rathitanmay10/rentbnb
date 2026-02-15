@@ -90,10 +90,7 @@ async def check_availability(
     """
     Check if property is available for given dates.
     Returns conflicting booking if unavailable, None if available.
-    Uses row-level locking to prevent race conditions.
     """
-    from fastapi import HTTPException, status
-    from sqlalchemy.exc import OperationalError
 
     query = (
         select(Booking)
@@ -103,21 +100,13 @@ async def check_availability(
             Booking.check_in < check_out,
             Booking.check_out > check_in,
         )
-        .with_for_update(nowait=True)
-    )
+        )
 
     if exclude_booking_id:
         query = query.where(Booking.id != exclude_booking_id)
 
-    try:
-        result = await db.execute(query)
-        return result.scalars().first()
-    except OperationalError:
-        # Row is locked by another transaction (concurrent booking attempt)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Property is currently being booked by another user, please try again",
-        )
+    result = await db.execute(query)
+    return result.scalars().first()
 
 
 async def create_booking(db: AsyncSession, booking_data: dict) -> Booking:

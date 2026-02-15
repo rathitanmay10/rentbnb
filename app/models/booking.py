@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,7 +16,6 @@ class Booking(BaseWithoutSoftDelete, TenantMixin):
     __table_args__ = (
         CheckConstraint("check_in < check_out", name="check_in_before_check_out"),
         CheckConstraint("total_amount >= 0", name="total_amount_non_negative"),
-        CheckConstraint("commission_amount >= 0", name="commission_non_negative"),
     )
 
     property_id: Mapped[uuid.UUID] = mapped_column(

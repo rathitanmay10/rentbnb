@@ -21,7 +21,13 @@ async def create_booking(
 ) -> dict:
     """Create a new booking and payment order."""
 
-    # 1. Check availability
+    # Lock the Property Row to serialize concurrent bookings for the SAME property.
+    property_obj = await property_crud.get_property_with_lock(db, data.property_id)
+    if not property_obj:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    # Check availability manually (since we have the lock, this is safe)
+    # The lock ensures no one else is booking this property right now.
     conflict = await booking_crud.check_availability(
         db, data.property_id, data.check_in, data.check_out
     )
@@ -31,15 +37,10 @@ async def create_booking(
             detail="Property not available for selected dates",
         )
 
-    # Calculate amount and fetch property details
-    property_obj = await property_crud.get_property(db, data.property_id)
-    if not property_obj:
-        raise HTTPException(status_code=404, detail="Property not found")
-
     nights = (data.check_out - data.check_in).days
     total_amount = nights * property_obj.price_per_night
 
-    # 3. Create booking
+    # Create booking
     booking = await booking_crud.create_booking(
         db,
         {
@@ -55,18 +56,18 @@ async def create_booking(
             "expires_at": datetime.now(UTC) + timedelta(minutes=10),
         },
     )
+    await db.commit()
+    await db.refresh(booking)
 
-    # 4. Create Razorpay order
+    # Create Razorpay order (External API Call - NO LOCK HELD)
     try:
         order = await payment_service.create_razorpay_order(
             db, booking.id, float(total_amount)
         )
     except Exception as e:
-        # Rollback would happen if we don't commit?
-        # But we want to fail cleanly.
         raise e
 
-    # 5. Create payment record
+    # Create payment record
     payment = await payment_crud.create_payment(
         db,
         {
@@ -80,10 +81,10 @@ async def create_booking(
         },
     )
 
-    # Commit the transaction to persist booking and payment
+    # Commit the transaction to persist payment
     await db.commit()
 
-    # 6. Schedule expiry task (Celery)
+    # Schedule expiry task (Celery)
     from app.tasks.booking_tasks import expire_pending_booking
 
     expire_pending_booking.apply_async(args=[str(booking.id)], eta=booking.expires_at)
@@ -97,7 +98,6 @@ async def create_booking(
         "razorpay_order_id": order["id"],
         "razorpay_key_id": settings.RAZORPAY_KEY_ID,
     }
-
 
 async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
     """Cancel booking."""
