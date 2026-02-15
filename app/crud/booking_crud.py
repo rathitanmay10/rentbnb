@@ -92,15 +92,12 @@ async def check_availability(
     Returns conflicting booking if unavailable, None if available.
     """
 
-    query = (
-        select(Booking)
-        .where(
-            Booking.property_id == property_id,
-            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
-            Booking.check_in < check_out,
-            Booking.check_out > check_in,
-        )
-        )
+    query = select(Booking).where(
+        Booking.property_id == property_id,
+        Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
+        Booking.check_in < check_out,
+        Booking.check_out > check_in,
+    )
 
     if exclude_booking_id:
         query = query.where(Booking.id != exclude_booking_id)

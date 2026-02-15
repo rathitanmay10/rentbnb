@@ -42,7 +42,9 @@ async def get_property(db: AsyncSession, property_id: UUID) -> Property | None:
     return result.scalars().first()
 
 
-async def get_property_with_lock(db: AsyncSession, property_id: UUID) -> Property | None:
+async def get_property_with_lock(
+    db: AsyncSession, property_id: UUID
+) -> Property | None:
     """Get property with row-level lock to serialize updates."""
     query = (
         select(Property)

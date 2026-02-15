@@ -102,6 +102,7 @@ async def create_booking(
         "razorpay_key_id": settings.RAZORPAY_KEY_ID,
     }
 
+
 async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
     """Cancel booking."""
     booking = await booking_crud.get_booking(db, booking_id)
