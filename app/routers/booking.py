@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import booking_crud
 from app.database.init_db import get_db
 from app.dependencies.tenant import get_tenant_user
-from app.enums import UserRole
+from app.enums import BookingStatus, UserRole
 from app.models import User
 from app.schemas.booking import (
     BookingCreate,
@@ -38,6 +39,10 @@ async def create_booking(
 async def list_my_bookings(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
+    status: BookingStatus | None = Query(None),
+    property_id: UUID | None = Query(None),
+    check_in: date | None = Query(None),
+    check_out: date | None = Query(None),
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -50,11 +55,19 @@ async def list_my_bookings(
         limit=limit,
         guest_id=current_user.id if current_user.role == UserRole.GUEST else None,
         tenant_id=current_user.tenant_id,
+        status=status,
+        property_id=property_id,
+        check_in=check_in,
+        check_out=check_out,
     )
     total = await booking_crud.get_bookings_count(
         db,
         guest_id=current_user.id if current_user.role == UserRole.GUEST else None,
         tenant_id=current_user.tenant_id,
+        status=status,
+        property_id=property_id,
+        check_in=check_in,
+        check_out=check_out,
     )
     return {"total": total, "skip": skip, "limit": limit, "data": bookings}
 

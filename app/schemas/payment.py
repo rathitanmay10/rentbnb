@@ -22,6 +22,11 @@ class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaymentListResponse(BaseModel):
+    total: int
+    data: list[PaymentResponse]
+
+
 class PaymentVerifyRequest(BaseModel):
     razorpay_order_id: str
     razorpay_payment_id: str

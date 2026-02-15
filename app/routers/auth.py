@@ -32,6 +32,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
+    response_model=MessageResponse,
     summary="Register a new user",
 )
 async def register(
@@ -55,6 +56,7 @@ async def register(
 @router.post(
     "/verify-email",
     status_code=status.HTTP_200_OK,
+    response_model=MessageResponse,
     summary="Verify user email",
 )
 async def verify_email(
@@ -71,6 +73,7 @@ async def verify_email(
 @router.post(
     "/resend-verification-email",
     status_code=status.HTTP_200_OK,
+    response_model=MessageResponse,
     summary="Resend Verification Mail",
 )
 async def resend_verify(
@@ -161,6 +164,7 @@ async def refresh(
 @router.post(
     "/change-password",
     status_code=status.HTTP_200_OK,
+    response_model=MessageResponse,
     summary="Change password",
 )
 async def change_password(
@@ -182,6 +186,7 @@ async def change_password(
 @router.post(
     "/forgot-password",
     status_code=status.HTTP_200_OK,
+    response_model=MessageResponse,
     summary="Request password reset",
 )
 async def forgot_password(
@@ -202,6 +207,7 @@ async def forgot_password(
 @router.post(
     "/reset-password",
     status_code=status.HTTP_200_OK,
+    response_model=MessageResponse,
     summary="Reset password",
 )
 async def reset_password(
@@ -222,6 +228,7 @@ async def reset_password(
 @router.post(
     "/logout",
     status_code=status.HTTP_200_OK,
+    response_model=MessageResponse,
     summary="Logout user",
 )
 async def logout(

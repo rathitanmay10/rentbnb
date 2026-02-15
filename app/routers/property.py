@@ -13,7 +13,7 @@ from app.dependencies import (
     require_roles,
     verify_tenant_property_access,
 )
-from app.enums import UserRole
+from app.enums import PropertyCategory, UserRole
 from app.models.user import User
 from app.schemas.property import (
     PropertyCreate,
@@ -57,11 +57,11 @@ async def list_own_properties(
 async def list_properties(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
-    min_price: Decimal = Query(None),
-    max_price: Decimal = Query(None),
-    category: str = Query(None),
-    city: str = Query(None),
-    guests: int = Query(None),
+    min_price: Decimal | None = Query(None, ge=0),
+    max_price: Decimal | None = Query(None, ge=0),
+    category: PropertyCategory | None = Query(None),
+    city: str | None = Query(None),
+    guests: int | None = Query(None, ge=1),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

@@ -25,7 +25,8 @@ async def list_amenities(
     List all amenities
     """
     amenities = await amenity_crud.get_all_amenities(db)
-    return {"amenities": amenities}
+    total = len(amenities)
+    return {"total": total, "data": amenities}
 
 
 @router.post("/", response_model=AmenityResponse, status_code=status.HTTP_201_CREATED)

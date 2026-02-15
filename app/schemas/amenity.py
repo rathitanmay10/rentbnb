@@ -28,4 +28,5 @@ class AmenityResponse(BaseModel):
 
 
 class AmenityListResponse(BaseModel):
-    amenities: list[AmenityResponse]
+    total: int
+    data: list[AmenityResponse]

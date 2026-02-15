@@ -9,7 +9,7 @@ from app.crud import payment_crud
 from app.database.init_db import get_db
 from app.dependencies.tenant import get_tenant_user
 from app.models import User
-from app.schemas.payment import PaymentResponse
+from app.schemas.payment import PaymentListResponse
 from app.services import payment_service
 
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ async def webhook(request: Request, db: AsyncSession = Depends(get_db)):
         raise
 
 
-@router.get("/booking/{booking_id}", response_model=list[PaymentResponse])
+@router.get("/booking/{booking_id}", response_model=PaymentListResponse)
 async def get_booking_payments(
     booking_id: UUID,
     current_user: User = Depends(get_tenant_user),
@@ -108,4 +108,4 @@ async def get_booking_payments(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Payments not found"
         )
-    return payments
+    return {"total": len(payments), "data": payments}

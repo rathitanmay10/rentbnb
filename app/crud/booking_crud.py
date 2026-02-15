@@ -52,12 +52,29 @@ async def get_bookings_count(
     db: AsyncSession,
     guest_id: UUID | None = None,
     tenant_id: UUID | None = None,
+    property_id: UUID | None = None,
+    status: BookingStatus | None = None,
+    check_in: date | None = None,
+    check_out: date | None = None,
+    active: bool | None = None,
 ) -> int:
     """Get total count of bookings."""
     query = select(func.count(Booking.id)).where(Booking.tenant_id == tenant_id)
 
     if guest_id:
         query = query.where(Booking.guest_id == guest_id)
+    if property_id:
+        query = query.where(Booking.property_id == property_id)
+    if status:
+        query = query.where(Booking.status == status)
+    if check_in:
+        query = query.where(Booking.check_in >= check_in)
+    if check_out:
+        query = query.where(Booking.check_out <= check_out)
+    if active:
+        query = query.where(
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
+        )
 
     result = await db.execute(query)
     return result.scalar_one()
