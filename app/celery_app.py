@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config.settings import settings
 
@@ -10,6 +11,7 @@ celery_app = Celery(
         "app.tasks.booking_tasks",
         "app.tasks.payment_tasks",
         "app.tasks.email_tasks",
+        "app.tasks.auth_tasks",
     ],
 )
 
@@ -25,6 +27,10 @@ celery_app.conf.update(
         "reconcile-pending-payments": {
             "task": "app.tasks.payment_tasks.reconcile_pending_payments",
             "schedule": 120.0,  # Run every 2 minutes
+        },
+        "cleanup-expired-tokens": {
+            "task": "app.tasks.auth_tasks.cleanup_tokens",
+            "schedule": crontab(minute=0, hour="*/6"),  # Run every 6 hours
         },
     },
 )
