@@ -27,15 +27,6 @@ async def create_property(db: AsyncSession, user: User, data: PropertyCreate) ->
 
     property_data = data.model_dump(exclude={"manager_id"})
 
-    existing_property = await property_crud.get_property_by_location(
-        db, property_data["latitude"], property_data["longitude"]
-    )
-    if existing_property:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Property at location {property_data['latitude']}, {property_data['longitude']} already exists.",
-        )
-
     property_data["tenant_id"] = user.tenant_id
 
     target_manager_id = data.manager_id
@@ -117,13 +108,16 @@ async def upload_property_image(
     new_filename = f"{uuid.uuid4()}.{file_ext}"
     file_path = os.path.join(property_dir, new_filename)
 
-    async with aiofiles.open(file_path, "wb") as buffer:
-        while content := await file.read(1024):
-            await buffer.write(content)
-
-    # Save to DB
-    url = f"/uploads/{property_id}/{new_filename}"
-    return await property_crud.add_property_image(db, property_id, url)
+    try:
+        async with aiofiles.open(file_path, "wb") as buffer:
+            while content := await file.read(1024):
+                await buffer.write(content)
+        url = f"/uploads/{property_id}/{new_filename}"
+        return await property_crud.add_property_image(db, property_id, url)
+    except Exception as e:
+        if await aiofiles.os.path.exists(file_path):
+            await aiofiles.os.remove(file_path)
+        raise e
 
 
 async def delete_property_image(

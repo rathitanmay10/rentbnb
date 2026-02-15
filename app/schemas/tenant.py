@@ -42,8 +42,6 @@ class TenantResponse(BaseModel):
     status: TenantStatus
     created_at: datetime
     updated_at: datetime
-    is_deleted: bool
-    deleted_at: datetime | None
 
     model_config = {"from_attributes": True}
 

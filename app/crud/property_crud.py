@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.enums import UserRole
 from app.models.amenity import Amenity
@@ -15,12 +15,13 @@ from app.schemas.property import PropertyCreate, PropertyUpdate
 
 
 async def create_property(db: AsyncSession, property_data: PropertyCreate) -> Property:
-    amenities = property_data.pop("amenities", [])
-    db_property = Property(**property_data)
+    property_data_dict = property_data
+    amenities_ids = property_data_dict.pop("amenities", [])
 
-    if amenities:
-        # Fetch amenities to associate
-        result = await db.execute(select(Amenity).filter(Amenity.id.in_(amenities)))
+    db_property = Property(**property_data_dict)
+
+    if amenities_ids:
+        result = await db.execute(select(Amenity).filter(Amenity.id.in_(amenities_ids)))
         amenities = result.scalars().all()
         db_property.amenities = list(amenities)
 
@@ -50,18 +51,6 @@ async def get_property_with_lock(
         select(Property)
         .filter(Property.id == property_id, Property.is_deleted.is_(False))
         .with_for_update()
-    )
-    result = await db.execute(query)
-    return result.scalars().first()
-
-
-async def get_property_by_location(
-    db: AsyncSession, latitude: str, longitude: str
-) -> Property | None:
-    query = select(Property).filter(
-        Property.latitude == latitude,
-        Property.longitude == longitude,
-        Property.is_deleted.is_(False),
     )
     result = await db.execute(query)
     return result.scalars().first()
@@ -105,7 +94,6 @@ async def get_properties(
     guests: int | None = None,
     tenant_id: UUID | None = None,
 ) -> tuple[list[Property], int]:
-
     query = select(Property).filter(
         Property.is_deleted.is_(False), Property.is_active.is_(True)
     )
@@ -152,7 +140,7 @@ async def get_image(
 ) -> PropertyImage | None:
     query = (
         select(PropertyImage)
-        .options(selectinload(PropertyImage.property))
+        .options(joinedload(PropertyImage.property))
         .filter(PropertyImage.id == image_id, PropertyImage.property_id == property_id)
     )
     result = await db.execute(query)

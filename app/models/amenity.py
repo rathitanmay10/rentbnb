@@ -1,9 +1,13 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from app.models.base import Base, BaseWithoutSoftDelete
+
+if TYPE_CHECKING:
+    from app.models.property import Property
 
 
 class Amenity(Base):
@@ -19,12 +23,12 @@ class Amenity(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Relationships
-    properties = relationship(
+    properties: Mapped[list["Property"]] = relationship(
         "Property", secondary="property_amenities", back_populates="amenities"
     )
 
 
-class PropertyAmenity(Base):
+class PropertyAmenity(BaseWithoutSoftDelete):
     __tablename__ = "property_amenities"
 
     property_id: Mapped[uuid.UUID] = mapped_column(

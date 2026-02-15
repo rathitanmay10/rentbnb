@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy import Enum as SAEnum
@@ -7,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.enums import UserRole
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.tenant import Tenant
 
 
 class User(Base):
@@ -51,8 +55,10 @@ class User(Base):
         default=False,
         nullable=False,
     )
-    tenant = relationship("Tenant", back_populates="users", lazy="joined")
-    blacklisted_tokens = relationship(
+    tenant: Mapped["Tenant"] = relationship(
+        "Tenant", back_populates="users", lazy="joined"
+    )
+    blacklisted_tokens: Mapped[list["BlacklistedToken"]] = relationship(
         "BlacklistedToken", back_populates="user", lazy="noload"
     )
 
@@ -68,4 +74,6 @@ class BlacklistedToken(Base):
         DateTime(timezone=True), nullable=False
     )
 
-    user = relationship("User", back_populates="blacklisted_tokens", lazy="selectin")
+    user: Mapped["User"] = relationship(
+        "User", back_populates="blacklisted_tokens", lazy="selectin"
+    )

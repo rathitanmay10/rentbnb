@@ -21,6 +21,7 @@ from app.schemas.property import (
     PropertyResponse,
     PropertyUpdate,
 )
+from app.schemas.property_image import PropertyImageCreateResponse
 from app.services import property_service
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
@@ -113,7 +114,7 @@ async def delete_property(
     return
 
 
-@router.post("/{property_id}/images")
+@router.post("/{property_id}/images", response_model=PropertyImageCreateResponse)
 async def upload_image(
     property_id: UUID,
     file: UploadFile = File(...),
