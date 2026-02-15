@@ -148,7 +148,9 @@ async def check_property_availability(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     verify_tenant_property_access(user, prop)
-    booked = await booking_crud.check_availability(db, prop.id, check_in, check_out)
+    booked = await booking_crud.check_property_availability(
+        db, prop.id, check_in, check_out
+    )
     if booked:
         availability = False
     else:
