@@ -130,13 +130,13 @@ def verify_tenant_property_access(current_user: User, property: Property) -> Non
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
 
-def get_tenant_user(current_user: User = Depends(get_current_user)) -> User:
+async def get_tenant_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Get current user's tenant and validate it's active.
     """
     if not current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
-    tenant = get_current_tenant(current_user)
+    tenant = await get_current_tenant(current_user)
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User Tenant not found"

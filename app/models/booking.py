@@ -37,11 +37,11 @@ class Booking(BaseWithoutSoftDelete, TenantMixin):
 
     check_in: Mapped[date] = mapped_column(Date, nullable=False)
     check_out: Mapped[date] = mapped_column(Date, nullable=False)
-
-    total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    base_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     commission_amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), default=0, nullable=False
     )
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
     cancelled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

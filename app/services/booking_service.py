@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
+from app.constants.payment import COMMISSION_PERCENTAGE
 from app.crud import booking_crud, payment_crud, property_crud, user_crud
 from app.enums import BookingStatus, PaymentStatus, UserRole
 from app.models import User
@@ -38,8 +39,9 @@ async def create_booking(
         )
 
     nights = (data.check_out - data.check_in).days
-    total_amount = nights * property_obj.price_per_night
-
+    base_amount = nights * property_obj.price_per_night
+    commission_amount = base_amount * (COMMISSION_PERCENTAGE / 100)
+    total_amount = base_amount + commission_amount
     # Create booking
     booking = await booking_crud.create_booking(
         db,
@@ -51,8 +53,9 @@ async def create_booking(
             "status": BookingStatus.PENDING,
             "check_in": data.check_in,
             "check_out": data.check_out,
+            "base_amount": base_amount,
+            "commission_amount": commission_amount,
             "total_amount": total_amount,
-            "commission_amount": 0,  # Placeholder
             "expires_at": datetime.now(UTC) + timedelta(minutes=10),
         },
     )
@@ -62,7 +65,7 @@ async def create_booking(
     # Create Razorpay order (External API Call - NO LOCK HELD)
     try:
         order = await payment_service.create_razorpay_order(
-            db, booking.id, float(total_amount)
+            db, booking.id, int(total_amount * 100)
         )
     except Exception as e:
         raise e

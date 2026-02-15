@@ -16,11 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 async def create_razorpay_order(
-    db: AsyncSession, booking_id: UUID, amount: float, currency: str = "INR"
+    db: AsyncSession, booking_id: UUID, amount_paise: int, currency: str = "INR"
 ) -> dict:
     """Create Razorpay order."""
-    # Amount needed in paise
-    amount_paise = int(amount * 100)
 
     data = {
         "amount": amount_paise,
