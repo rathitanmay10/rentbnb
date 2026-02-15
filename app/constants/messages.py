@@ -10,7 +10,6 @@ OTP_COOLDOWN_MSG = "Please wait before requesting another OTP"
 # Core Errors
 INTERNAL_ERROR = "Internal server error"
 NOT_FOUND = "Resource not found"
-FORBIDDEN = "Permission denied"
 
 # Success
 OTP_SENT = "OTP sent successfully"

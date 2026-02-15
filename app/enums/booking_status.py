@@ -2,7 +2,7 @@ from enum import StrEnum
 
 
 class BookingStatus(StrEnum):
-    PENDING = "pending"
-    CONFIRMED = "confirmed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+    PENDING = "PENDING"
+    CONFIRMED = "CONFIRMED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
