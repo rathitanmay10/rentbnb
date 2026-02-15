@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -40,7 +41,7 @@ async def create_booking(
 
     nights = (data.check_out - data.check_in).days
     base_amount = nights * property_obj.price_per_night
-    commission_amount = base_amount * (COMMISSION_PERCENTAGE / 100)
+    commission_amount = base_amount * (Decimal(str(COMMISSION_PERCENTAGE)) / 100)
     total_amount = base_amount + commission_amount
     # Create booking
     booking = await booking_crud.create_booking(
