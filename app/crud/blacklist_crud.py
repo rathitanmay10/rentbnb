@@ -25,23 +25,6 @@ async def blacklist_token(
     return blacklisted
 
 
-async def blacklist_all_user_tokens(db: AsyncSession, user_id: UUID) -> int:
-    """
-    Blacklist all tokens for a user by incrementing their token_version.
-    Directly updates the user model to avoid circular dependency with user_crud.
-    Returns 1 if successful, 0 otherwise.
-    """
-    from app.models import User
-
-    user = await db.get(User, user_id)
-    if not user:
-        return 0
-
-    user.token_version += 1
-    await db.flush()
-    return 1
-
-
 async def cleanup_expired_tokens(db: AsyncSession) -> int:
     """Delete expired blacklisted tokens. Returns count of deleted tokens."""
     from sqlalchemy import delete

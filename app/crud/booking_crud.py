@@ -90,34 +90,20 @@ async def check_availability(
     """
     Check if property is available for given dates.
     Returns conflicting booking if unavailable, None if available.
-    Uses row-level locking to prevent race conditions.
     """
-    from fastapi import HTTPException, status
-    from sqlalchemy.exc import OperationalError
 
-    query = (
-        select(Booking)
-        .where(
-            Booking.property_id == property_id,
-            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
-            Booking.check_in < check_out,
-            Booking.check_out > check_in,
-        )
-        .with_for_update(nowait=True)
+    query = select(Booking).where(
+        Booking.property_id == property_id,
+        Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
+        Booking.check_in < check_out,
+        Booking.check_out > check_in,
     )
 
     if exclude_booking_id:
         query = query.where(Booking.id != exclude_booking_id)
 
-    try:
-        result = await db.execute(query)
-        return result.scalars().first()
-    except OperationalError:
-        # Row is locked by another transaction (concurrent booking attempt)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Property is currently being booked by another user, please try again",
-        )
+    result = await db.execute(query)
+    return result.scalars().first()
 
 
 async def create_booking(db: AsyncSession, booking_data: dict) -> Booking:
@@ -176,3 +162,24 @@ async def get_tenant_future_bookings(db: AsyncSession, user_id: UUID) -> list[Bo
     )
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+async def check_property_availability(
+    db: AsyncSession,
+    property_id: UUID,
+    check_in: date,
+    check_out: date,
+) -> Booking | None:
+    """
+    Check if property is available for given dates.
+    Returns conflicting booking if unavailable, None if available.
+    """
+
+    query = select(Booking).where(
+        Booking.property_id == property_id,
+        Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
+        Booking.check_in < check_out,
+        Booking.check_out > check_in,
+    )
+    result = await db.execute(query)
+    return result.scalars().first()

@@ -42,6 +42,19 @@ async def get_property(db: AsyncSession, property_id: UUID) -> Property | None:
     return result.scalars().first()
 
 
+async def get_property_with_lock(
+    db: AsyncSession, property_id: UUID
+) -> Property | None:
+    """Get property with row-level lock to serialize updates."""
+    query = (
+        select(Property)
+        .filter(Property.id == property_id, Property.is_deleted.is_(False))
+        .with_for_update()
+    )
+    result = await db.execute(query)
+    return result.scalars().first()
+
+
 async def get_property_by_location(
     db: AsyncSession, latitude: str, longitude: str
 ) -> Property | None:

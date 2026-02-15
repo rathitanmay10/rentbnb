@@ -16,7 +16,6 @@ class Booking(BaseWithoutSoftDelete, TenantMixin):
     __table_args__ = (
         CheckConstraint("check_in < check_out", name="check_in_before_check_out"),
         CheckConstraint("total_amount >= 0", name="total_amount_non_negative"),
-        CheckConstraint("commission_amount >= 0", name="commission_non_negative"),
     )
 
     property_id: Mapped[uuid.UUID] = mapped_column(
@@ -38,11 +37,11 @@ class Booking(BaseWithoutSoftDelete, TenantMixin):
 
     check_in: Mapped[date] = mapped_column(Date, nullable=False)
     check_out: Mapped[date] = mapped_column(Date, nullable=False)
-
-    total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    base_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     commission_amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), default=0, nullable=False
     )
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
     cancelled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

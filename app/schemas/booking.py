@@ -46,8 +46,9 @@ class BookingResponse(BookingBase):
     guest_id: uuid.UUID
     property_manager_id: uuid.UUID
     status: BookingStatus
-    total_amount: Decimal
+    base_amount: Decimal
     commission_amount: Decimal
+    total_amount: Decimal
     expires_at: datetime
     cancelled_at: datetime | None
     created_at: datetime

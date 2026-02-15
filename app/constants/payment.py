@@ -8,3 +8,5 @@ PAYMENT_RECONCILIATION_WINDOWS = [
     (60, 90),  # Hourly check: 1-1.5 hours old
     (600, 700),  # Final check: ~10-12 hours old
 ]
+
+COMMISSION_PERCENTAGE = 10.0
