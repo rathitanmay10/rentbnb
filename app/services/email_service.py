@@ -35,9 +35,9 @@ class EmailService:
                 password=settings.SMTP_PASSWORD,
                 start_tls=True,
             )
-            logger.info(f"Email sent to {to_email}")
+            logger.info("Email sent")
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {e}")
+            logger.error(f"Failed to send email: {e}")
 
 
 email_service = EmailService()

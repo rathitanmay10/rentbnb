@@ -15,6 +15,7 @@ from app.routers import (
     message,
     payment,
     property,
+    review,
     tenant,
     user,
     websocket,
@@ -30,15 +31,7 @@ from app.utils.redis_client import redis_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: verify Redis connection
-    try:
-        await redis_client.get_client().ping()
-    except Exception:
-        raise
-
     yield
-
-    # Shutdown
     await redis_client.close()
 
 
@@ -72,6 +65,7 @@ api_v1.include_router(amenity.router)
 api_v1.include_router(booking.router)
 api_v1.include_router(payment.router)
 api_v1.include_router(message.router)
+api_v1.include_router(review.router)
 api_v1.include_router(websocket.router)
 
 app.include_router(api_v1)

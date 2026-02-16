@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric
 from sqlalchemy import Enum as SAEnum
@@ -9,6 +10,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.enums import BookingStatus
 from app.models.base import BaseWithoutSoftDelete
 from app.models.mixins import TenantMixin
+
+if TYPE_CHECKING:
+    from app.models.message import Message
+    from app.models.payment import Payment
+    from app.models.property import Property
+    from app.models.review import Review
+    from app.models.tenant import Tenant
+    from app.models.user import User
 
 
 class Booking(BaseWithoutSoftDelete, TenantMixin):
@@ -51,11 +60,16 @@ class Booking(BaseWithoutSoftDelete, TenantMixin):
     )
 
     # Relationships
-    tenant = relationship("Tenant", back_populates="bookings")
-    property = relationship("Property", back_populates="bookings")
-    guest = relationship("User", foreign_keys=[guest_id])
-    manager = relationship("User", foreign_keys=[property_manager_id])
-    payments = relationship("Payment", back_populates="booking", lazy="selectin")
-    messages = relationship(
-        "Message", back_populates="booking", cascade="all, delete-orphan"
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="bookings")
+    property: Mapped["Property"] = relationship("Property", back_populates="bookings")
+    guest: Mapped["User"] = relationship("User", foreign_keys=[guest_id])
+    manager: Mapped["User"] = relationship("User", foreign_keys=[property_manager_id])
+    payments: Mapped[list["Payment"]] = relationship(
+        "Payment", back_populates="booking", lazy="selectin"
+    )
+    messages: Mapped[list["Message"]] = relationship(
+        "Message", back_populates="booking"
+    )
+    review: Mapped["Review"] = relationship(
+        "Review", back_populates="booking", uselist=False
     )

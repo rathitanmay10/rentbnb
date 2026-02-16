@@ -100,7 +100,6 @@ async def get_booking_payments(
     current_user: User = Depends(get_tenant_user),
     db: AsyncSession = Depends(get_db),
 ):
-
     payments = await payment_crud.get_payments_by_booking(
         db, booking_id, current_user.tenant_id
     )

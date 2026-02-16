@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String
 from sqlalchemy import Enum as SAEnum
@@ -8,6 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.enums import PaymentStatus
 from app.models.base import BaseWithoutSoftDelete
 from app.models.mixins import TenantMixin
+
+if TYPE_CHECKING:
+    from app.models.booking import Booking
+    from app.models.tenant import Tenant
+    from app.models.user import User
 
 
 class Payment(BaseWithoutSoftDelete, TenantMixin):
@@ -38,6 +44,6 @@ class Payment(BaseWithoutSoftDelete, TenantMixin):
     razorpay_signature: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Relationships
-    tenant = relationship("Tenant", back_populates="payments")
-    booking = relationship("Booking", back_populates="payments")
-    guest = relationship("User", foreign_keys=[guest_id])
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="payments")
+    booking: Mapped["Booking"] = relationship("Booking", back_populates="payments")
+    guest: Mapped["User"] = relationship("User", foreign_keys=[guest_id])

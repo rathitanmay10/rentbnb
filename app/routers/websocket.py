@@ -9,6 +9,7 @@ from app.crud import booking_crud
 from app.database.init_db import get_db
 from app.enums import TenantStatus, UserRole
 from app.models import User
+from app.services import message_service
 from app.utils.websocket_manager import manager
 
 router = APIRouter(prefix="/ws", tags=["WebSocket"])
@@ -119,9 +120,6 @@ async def websocket_endpoint(
         try:
             while True:
                 data = await websocket.receive_text()
-
-                from app.services import message_service
-
                 await message_service.create_user_message(
                     db=db,
                     user=user,

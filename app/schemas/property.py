@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from app.enums.property_category import PropertyCategory
 from app.schemas.amenity import AmenityResponse
@@ -17,8 +17,8 @@ class PropertyBase(BaseModel):
     state: str
     country: str
     zipcode: str | None = None
-    latitude: str
-    longitude: str
+    latitude: Decimal
+    longitude: Decimal
     category: PropertyCategory
     bedrooms: int
     max_guests: int
@@ -39,8 +39,8 @@ class PropertyUpdate(BaseModel):
     state: str | None = None
     country: str | None = None
     zipcode: str | None = None
-    latitude: str | None = None
-    longitude: str | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
     category: PropertyCategory | None = None
     bedrooms: int | None = None
     max_guests: int | None = None
@@ -55,10 +55,13 @@ class PropertyResponse(PropertyBase):
     managed_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
+    rating: Decimal
+    review_count: int
     images: list[PropertyImageResponse] = []
     amenities: list[AmenityResponse] = []
-
-    model_config = ConfigDict(from_attributes=True)
+    rating: Decimal
+    review_count: int
+    model_config = {"from_attributes": True}
 
 
 class PropertyListResponse(BaseModel):

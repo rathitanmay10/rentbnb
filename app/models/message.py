@@ -1,4 +1,5 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Text
@@ -7,6 +8,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.enums import MessageType
 from app.models.base import BaseWithoutSoftDelete
 from app.models.mixins import TenantMixin
+
+if TYPE_CHECKING:
+    from app.models.booking import Booking
+    from app.models.tenant import Tenant
+    from app.models.user import User
 
 
 class Message(BaseWithoutSoftDelete, TenantMixin):
@@ -27,6 +33,6 @@ class Message(BaseWithoutSoftDelete, TenantMixin):
     )
 
     # Relationships
-    tenant = relationship("Tenant", back_populates="messages")
-    booking = relationship("Booking", back_populates="messages")
-    sender = relationship("User", foreign_keys=[sender_id])
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="messages")
+    booking: Mapped["Booking"] = relationship("Booking", back_populates="messages")
+    sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id])

@@ -17,9 +17,12 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.22",
+    "razorpay>=2.0.0",
     "redis>=7.1.0",
     "sqlalchemy>=2.0.46",
+    "structlog>=25.5.0",
     "uvicorn>=0.40.0",
+    "websocket>=0.2.1",
 ]
 
 [dependency-groups]

@@ -24,10 +24,13 @@ async def create_booking(
     """Create a new booking and payment order."""
 
     # Lock the Property Row to serialize concurrent bookings for the SAME property.
-    property_obj = await property_crud.get_property_with_lock(db, data.property_id)
+    property_obj = await property_crud.get_property_with_lock(
+        db, data.property_id, user.tenant_id
+    )
     if not property_obj:
         raise HTTPException(status_code=404, detail="Property not found")
-
+    if not property_obj.is_active:
+        raise HTTPException(status_code=403, detail="Property is not active")
     # Check availability manually (since we have the lock, this is safe)
     # The lock ensures no one else is booking this property right now.
     conflict = await booking_crud.check_availability(
