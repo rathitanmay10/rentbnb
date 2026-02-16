@@ -71,6 +71,11 @@ async def get_reviews_by_property_id(
     limit: int = 10,
     rating: int | None = None,
 ) -> PropertyReviewListResponse:
+    property_obj = await property_crud.get_property(db, property_id)
+    if not property_obj:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if property_obj.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Property not found")
     reviews, total = await review_crud.get_reviews_by_property_id(
         db,
         tenant_id=current_user.tenant_id,
