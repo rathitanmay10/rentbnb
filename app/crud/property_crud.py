@@ -101,8 +101,7 @@ async def get_properties(
     query = select(Property).filter(
         Property.is_deleted.is_(False), Property.is_active.is_(True)
     )
-    if tenant_id:
-        query = query.filter(Property.tenant_id == tenant_id)
+    query = query.filter(Property.tenant_id == tenant_id)
     if min_price:
         query = query.filter(Property.price_per_night >= min_price)
     if max_price:

@@ -64,8 +64,12 @@ async def list_properties(
     city: str | None = Query(None),
     guests: int | None = Query(None, ge=1),
     db: AsyncSession = Depends(get_db),
-    tenant_id: UUID = Depends(get_tenant_id_from_header),
+    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
 ):
+    if tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Tenant ID is required"
+        )
     properties, total = await property_crud.get_properties(
         db, skip, limit, min_price, max_price, category, city, guests, tenant_id
     )
@@ -95,7 +99,7 @@ async def update_property(
     prop = await property_crud.get_property(db, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
-
+    verify_tenant_property_access(user, prop)
     if not property_service.can_edit_property(user, prop):
         raise HTTPException(
             status_code=403, detail="Not authorized to edit this property"
