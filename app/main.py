@@ -15,6 +15,7 @@ from app.routers import (
     message,
     payment,
     property,
+    review,
     tenant,
     user,
     websocket,
@@ -64,6 +65,7 @@ api_v1.include_router(amenity.router)
 api_v1.include_router(booking.router)
 api_v1.include_router(payment.router)
 api_v1.include_router(message.router)
+api_v1.include_router(review.router)
 api_v1.include_router(websocket.router)
 
 app.include_router(api_v1)

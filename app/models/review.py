@@ -28,7 +28,7 @@ class Review(BaseWithoutSoftDelete, TenantMixin):
     )
     guest_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
-    comment: Mapped[str] = mapped_column(Text, nullable=False)
+    comment: Mapped[str] = mapped_column(Text, nullable=True)
 
     booking: Mapped["Booking"] = relationship("Booking", back_populates="review")
     property: Mapped["Property"] = relationship("Property", back_populates="reviews")

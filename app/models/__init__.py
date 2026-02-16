@@ -19,6 +19,7 @@ __all__ = [
     "PropertyAmenity",
     "PropertyImage",
     "Review",
+    "Review",
     "Tenant",
     "User",
     "Webhook",

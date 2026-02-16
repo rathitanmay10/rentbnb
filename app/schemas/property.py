@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from app.enums.property_category import PropertyCategory
 from app.schemas.amenity import AmenityResponse
@@ -59,8 +59,9 @@ class PropertyResponse(PropertyBase):
     review_count: int
     images: list[PropertyImageResponse] = []
     amenities: list[AmenityResponse] = []
-
-    model_config = ConfigDict(from_attributes=True)
+    rating: Decimal
+    review_count: int
+    model_config = {"from_attributes": True}
 
 
 class PropertyListResponse(BaseModel):

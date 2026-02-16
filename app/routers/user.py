@@ -217,9 +217,5 @@ async def delete_user(
     if current_user.role == UserRole.TENANT_ADMIN:
         verify_tenant_admin_management(current_user, target_user)
 
-    success = await user_service.delete_user(db, target_user)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+    await user_service.delete_user(db, target_user)
     return

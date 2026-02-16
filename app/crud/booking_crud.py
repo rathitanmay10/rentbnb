@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.enums import BookingStatus
 from app.models import Booking
@@ -180,6 +181,22 @@ async def check_property_availability(
         Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
         Booking.check_in < check_out,
         Booking.check_out > check_in,
+    )
+    result = await db.execute(query)
+    return result.scalars().first()
+
+
+async def get_booking_with_review(
+    db: AsyncSession, booking_id: UUID, user_id: UUID
+) -> Booking | None:
+    """Get booking by guest ID."""
+    query = (
+        select(Booking)
+        .options(joinedload(Booking.review))
+        .where(
+            Booking.id == booking_id,
+            Booking.guest_id == user_id,
+        )
     )
     result = await db.execute(query)
     return result.scalars().first()
