@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 from app.enums.property_category import PropertyCategory
 from app.schemas.amenity import AmenityResponse
@@ -10,20 +10,28 @@ from app.schemas.property_image import PropertyImageResponse
 
 
 class PropertyBase(BaseModel):
-    name: str
-    description: str | None = None
-    address: str
-    city: str
-    state: str
-    country: str
-    zipcode: str | None = None
-    latitude: Decimal
-    longitude: Decimal
+    name: str = Field(..., min_length=5, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    address: str = Field(..., max_length=255)
+    city: str = Field(..., max_length=100)
+    state: str = Field(..., max_length=100)
+    country: str = Field(..., max_length=100)
+    zipcode: str | None = Field(None, max_length=20)
+    latitude: Decimal = Field(..., ge=-90, le=90, decimal_places=6)
+    longitude: Decimal = Field(..., ge=-180, le=180, decimal_places=6)
     category: PropertyCategory
-    bedrooms: int
-    max_guests: int
-    price_per_night: Decimal
+    bedrooms: int = Field(..., ge=1)
+    max_guests: int = Field(..., ge=1)
+    price_per_night: Decimal = Field(..., gt=0, le=999999.99)
     is_active: bool = True
+
+    @model_validator(mode="after")
+    def validate_max_guests(self):
+        if self.max_guests > self.bedrooms * 3:
+            raise ValueError(
+                f"Max guests ({self.max_guests}) cannot exceed 3 times the number of bedrooms ({self.bedrooms})"
+            )
+        return self
 
 
 class PropertyCreate(PropertyBase):
@@ -32,21 +40,30 @@ class PropertyCreate(PropertyBase):
 
 
 class PropertyUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    address: str | None = None
-    city: str | None = None
-    state: str | None = None
-    country: str | None = None
-    zipcode: str | None = None
-    latitude: Decimal | None = None
-    longitude: Decimal | None = None
+    name: str | None = Field(None, min_length=5, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    address: str | None = Field(None, max_length=255)
+    city: str | None = Field(None, max_length=100)
+    state: str | None = Field(None, max_length=100)
+    country: str | None = Field(None, max_length=100)
+    zipcode: str | None = Field(None, max_length=20)
+    latitude: Decimal | None = Field(None, ge=-90, le=90, decimal_places=6)
+    longitude: Decimal | None = Field(None, ge=-180, le=180, decimal_places=6)
     category: PropertyCategory | None = None
-    bedrooms: int | None = None
-    max_guests: int | None = None
-    price_per_night: Decimal | None = None
+    bedrooms: int | None = Field(None, ge=1)
+    max_guests: int | None = Field(None, ge=1)
+    price_per_night: Decimal | None = Field(None, gt=0, le=999999.99)
     is_active: bool | None = None
     amenities: list[uuid.UUID] | None = None
+
+    @model_validator(mode="after")
+    def validate_max_guests(self):
+        if self.max_guests is not None and self.bedrooms is not None:
+            if self.max_guests > self.bedrooms * 3:
+                raise ValueError(
+                    f"Max guests ({self.max_guests}) cannot exceed 3 times the number of bedrooms ({self.bedrooms})"
+                )
+        return self
 
 
 class PropertyResponse(PropertyBase):
@@ -59,8 +76,6 @@ class PropertyResponse(PropertyBase):
     review_count: int
     images: list[PropertyImageResponse] = []
     amenities: list[AmenityResponse] = []
-    rating: Decimal
-    review_count: int
     model_config = {"from_attributes": True}
 
 

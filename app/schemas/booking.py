@@ -1,8 +1,8 @@
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.enums import BookingStatus
 from app.schemas.payment import PaymentResponse
@@ -29,12 +29,26 @@ class BookingCreate(BookingBase):
             raise ValueError("Check-out must be after check-in")
         return v
 
+    @model_validator(mode="after")
+    def validate_booking_constraints(self):
+        # Max 30 days duration
+        duration = (self.check_out - self.check_in).days
+        if duration > 30:
+            raise ValueError("Booking duration cannot exceed 30 days")
+
+        # Max 3 months advance booking
+        max_advance_date = datetime.now(UTC).date() + timedelta(days=90)
+        if self.check_in > max_advance_date:
+            raise ValueError("Bookings cannot be made more than 3 months in advance")
+
+        return self
+
 
 class BookingCreateResponse(BaseModel):
     booking_id: uuid.UUID
     payment_id: uuid.UUID
     status: BookingStatus
-    total_amount: Decimal
+    total_amount: Decimal = Field(..., gt=0)
     expires_at: datetime
     razorpay_order_id: str
     razorpay_key_id: str
@@ -54,7 +68,7 @@ class BookingResponse(BookingBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class BookingWithPaymentResponse(BookingResponse):

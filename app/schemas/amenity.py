@@ -1,12 +1,12 @@
 import uuid
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.utils.validators import validate_amenity_name
 
 
 class AmenityCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=255)
 
     @field_validator("name")
     def validate_name(cls, v: str) -> str:
@@ -14,7 +14,7 @@ class AmenityCreate(BaseModel):
 
 
 class AmenityUpdate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=255)
 
     @field_validator("name")
     def validate_name(cls, v: str) -> str:
