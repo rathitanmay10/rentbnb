@@ -12,6 +12,7 @@ from app.routers import (
     amenity,
     auth,
     booking,
+    dashboard,
     message,
     payment,
     property,
@@ -66,6 +67,7 @@ api_v1.include_router(booking.router)
 api_v1.include_router(payment.router)
 api_v1.include_router(message.router)
 api_v1.include_router(review.router)
+api_v1.include_router(dashboard.router)
 api_v1.include_router(websocket.router)
 
 app.include_router(api_v1)
