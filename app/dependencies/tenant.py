@@ -3,9 +3,11 @@
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.messages import NOT_FOUND
 from app.crud import tenant_crud
+from app.database.init_db import get_db
 from app.dependencies.user import get_current_user
 from app.enums import TenantStatus
 from app.models import Property, Tenant, User
@@ -93,6 +95,7 @@ def verify_tenant_admin_management(current_user: User, target_user: User) -> Non
 
 async def get_tenant_id_from_header(
     tenant_id: str | None = Header(None, alias="tenant-id"),
+    db: AsyncSession = Depends(get_db),
 ) -> UUID | None:
     """
     Extract tenant ID from header.
@@ -103,13 +106,13 @@ async def get_tenant_id_from_header(
         return None
 
     try:
-        return UUID(tenant_id)
+        tenant_id = UUID(tenant_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid tenant-id header format",
         )
-    tenant = await tenant_crud.get_tenant(tenant_id)
+    tenant = await tenant_crud.get_tenant(db, tenant_id)
     if not tenant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
     if tenant.is_deleted:
