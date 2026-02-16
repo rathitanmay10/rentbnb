@@ -30,15 +30,7 @@ from app.utils.redis_client import redis_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: verify Redis connection
-    try:
-        await redis_client.get_client().ping()
-    except Exception:
-        raise
-
     yield
-
-    # Shutdown
     await redis_client.close()
 
 

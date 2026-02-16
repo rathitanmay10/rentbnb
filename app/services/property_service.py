@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import aiofiles
-import aiofiles.os
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -101,7 +100,7 @@ async def upload_property_image(
 
     # Save file
     property_dir = os.path.join(UPLOAD_DIR, str(property_id))
-    os.makedirs(property_dir, exist_ok=True)
+    await aiofiles.os.makedirs(property_dir, exist_ok=True)
 
     # Generate unique filename
     file_ext = file.filename.split(".")[-1]
@@ -110,14 +109,14 @@ async def upload_property_image(
 
     try:
         async with aiofiles.open(file_path, "wb") as buffer:
-            while content := await file.read(1024):
+            while content := await file.read(64 * 1024):
                 await buffer.write(content)
         url = f"/uploads/{property_id}/{new_filename}"
         return await property_crud.add_property_image(db, property_id, url)
-    except Exception as e:
+    except Exception:
         if await aiofiles.os.path.exists(file_path):
             await aiofiles.os.remove(file_path)
-        raise e
+        raise
 
 
 async def delete_property_image(
@@ -134,22 +133,12 @@ async def delete_property_image(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
 
-    # Delete file from filesystem
-    # URL format: /uploads/{property_id}/{filename}
-    # We need to reconstruct the file path.
-    # Assuming UPLOAD_DIR is "uploads" and structure is uploads/{property_id}/{filename}
+    filename = image.url.split("/")[-1]
+    property_id = str(image.property_id)
+    file_path = os.path.join(UPLOAD_DIR, property_id, filename)
 
-    try:
-        filename = image.url.split("/")[-1]
-        property_id = str(image.property_id)
-        # Construct path safely
-        file_path = os.path.join(UPLOAD_DIR, property_id, filename)
-
-        # Use aiofiles.os for async file operations
-        if await aiofiles.os.path.exists(file_path):
-            await aiofiles.os.remove(file_path)
-    except Exception as e:
-        raise e
+    if await aiofiles.os.path.exists(file_path):
+        await aiofiles.os.remove(file_path)
     await property_crud.delete_image(db, image)
 
 
