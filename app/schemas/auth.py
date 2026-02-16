@@ -34,7 +34,7 @@ class LoginSchema(BaseModel):
 
 class VerifyLoginSchema(BaseModel):
     email: EmailStr
-    otp: str = Field(..., pattern=r"^\d{6}$", description="6-digit OTP")
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit OTP")
 
 
 class TokenResponse(BaseModel):
