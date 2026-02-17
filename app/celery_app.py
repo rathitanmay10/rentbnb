@@ -29,8 +29,8 @@ def config_loggers(*args, **kwargs):
 
 celery_app = Celery(
     "rentbnb",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=settings.CELERY_BROKER_URL,
+    backend=settings.CELERY_RESULT_BACKEND,
     include=[
         "app.tasks.booking_tasks",
         "app.tasks.payment_tasks",
