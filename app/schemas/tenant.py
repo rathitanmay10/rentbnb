@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.enums import TenantStatus
 from app.utils.validators import validate_tenant_name
@@ -12,7 +12,7 @@ class TenantBase(BaseModel):
 
 
 class TenantCreate(TenantBase):
-    name: str
+    name: str = Field(..., max_length=255)
 
     @field_validator("name")
     @classmethod
@@ -22,6 +22,7 @@ class TenantCreate(TenantBase):
 
 class TenantUpdate(TenantBase):
     status: TenantStatus | None = None
+    name: str | None = Field(None, max_length=255)
 
     @field_validator("name")
     @classmethod

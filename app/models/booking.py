@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +25,9 @@ class Booking(BaseWithoutSoftDelete, TenantMixin):
     __table_args__ = (
         CheckConstraint("check_in < check_out", name="check_in_before_check_out"),
         CheckConstraint("total_amount >= 0", name="total_amount_non_negative"),
+        Index("ix_bookings_tenant_status", "tenant_id", "status"),
+        Index("ix_bookings_check_in", "check_in"),
+        Index("ix_bookings_created_at", "created_at"),
     )
 
     property_id: Mapped[uuid.UUID] = mapped_column(

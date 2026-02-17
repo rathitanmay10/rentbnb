@@ -1,13 +1,21 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field, field_validator
 
 from app.enums import MessageType
 
 
 class MessageCreate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=5000)
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Content cannot be empty or just whitespace")
+        return v
 
 
 class MessageResponse(BaseModel):
@@ -18,7 +26,7 @@ class MessageResponse(BaseModel):
     message_type: MessageType
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class MessageListResponse(BaseModel):

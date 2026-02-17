@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.utils.validators import validate_password, validate_username
 
@@ -34,7 +34,7 @@ class LoginSchema(BaseModel):
 
 class VerifyLoginSchema(BaseModel):
     email: EmailStr
-    otp: str
+    otp: str = Field(..., min_length=6, max_length=6, description="6-digit OTP")
 
 
 class TokenResponse(BaseModel):
@@ -47,13 +47,19 @@ class RefreshSchema(BaseModel):
 
 
 class ChangePasswordSchema(BaseModel):
-    old_password: str
+    old_password: str = Field(..., min_length=1)
     new_password: str
 
     @field_validator("new_password")
     @classmethod
     def _validate_new_password(cls, v):
         return validate_password(v)
+
+    @model_validator(mode="after")
+    def check_passwords_different(self):
+        if self.old_password == self.new_password:
+            raise ValueError("New password must be different from old password")
+        return self
 
 
 class ForgotPasswordSchema(BaseModel):

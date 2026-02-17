@@ -10,6 +10,7 @@ from app.schemas.booking import (
     BookingResponse,
     BookingWithPaymentResponse,
 )
+from app.schemas.dashboard import PlatformDashboardResponse, TenantDashboardResponse
 from app.schemas.message import MessageCreate, MessageResponse
 from app.schemas.payment import PaymentResponse, PaymentVerifyRequest
 from app.schemas.property import PropertyCreate, PropertyResponse, PropertyUpdate
@@ -33,12 +34,14 @@ __all__ = [
     "MessageResponse",
     "PaymentResponse",
     "PaymentVerifyRequest",
+    "PlatformDashboardResponse",
     "PropertyCreate",
     "PropertyImageResponse",
     "PropertyResponse",
     "PropertyUpdate",
     "RegisterSchema",
     "TenantCreate",
+    "TenantDashboardResponse",
     "TenantListResponse",
     "TenantResponse",
     "TenantUpdate",

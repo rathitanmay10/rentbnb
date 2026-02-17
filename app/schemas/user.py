@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.enums import UserRole
 from app.utils.validators import validate_password, validate_username
@@ -14,7 +14,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     username: str
-    email: EmailStr
+    email: EmailStr = Field(..., max_length=255)
     password: str
     tenant_id: UUID | None = None
     role: UserRole = UserRole.GUEST

@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,7 +18,11 @@ if TYPE_CHECKING:
 
 class Payment(BaseWithoutSoftDelete, TenantMixin):
     __tablename__ = "payments"
-    __table_args__ = (CheckConstraint("amount >= 0", name="amount_non_negative"),)
+    __table_args__ = (
+        CheckConstraint("amount >= 0", name="amount_non_negative"),
+        Index("ix_payments_tenant_status", "tenant_id", "status"),
+        Index("ix_payments_created_at", "created_at"),
+    )
 
     booking_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("bookings.id"), nullable=False, index=True
