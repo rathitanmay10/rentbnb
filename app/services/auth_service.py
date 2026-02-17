@@ -30,6 +30,7 @@ from app.schemas.auth import (
     ResetPasswordSchema,
     VerifyLoginSchema,
 )
+from app.schemas import UserCreate
 from app.services import user_service
 from app.services.email_service import email_service
 from app.utils.email_utils import build_reset_password_email, build_verification_email
@@ -62,7 +63,6 @@ async def register_user(
             detail="Verification email already sent. Please wait.",
         )
 
-    from app.schemas import UserCreate
 
     user_data = UserCreate(
         username=register_data.username,
@@ -73,7 +73,7 @@ async def register_user(
     )
 
     try:
-        user = await user_service.create_user(db, user_data)
+        user = await user_service.create_user(db, user_data, tenant_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
