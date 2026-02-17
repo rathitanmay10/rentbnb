@@ -1,5 +1,5 @@
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import BackgroundTasks, HTTPException, status
@@ -181,30 +181,24 @@ async def login_password(
     user = await user_service.get_user_by_email(db, login_data.email, tenant_id)
 
     if not user:
-        # Avoid user enumeration (marketing/timing attack mitigation)
-        # In a real app we might want to standardize timing here
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_INVALID_CREDENTIALS
         )
 
-    # Verify password
     if not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_INVALID_CREDENTIALS
         )
 
-    # Check if user is active
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
 
-    # Check if email is verified
     if not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=AUTH_UNVERIFIED,
         )
 
-    # Check if tenant is active (if user has a tenant)
     if user.tenant_id and user.tenant:
         if user.tenant.is_deleted or user.tenant.status == TenantStatus.INACTIVE:
             raise HTTPException(
@@ -229,13 +223,10 @@ async def login_otp_init(
     """
     user = await user_service.get_user_by_email(db, email, tenant_id)
     if not user:
-        # Return success to avoid user enumeration
         return {"message": OTP_SENT}
 
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
-
-    # Send OTP using OTPHandler
     await OTPHandler.send_otp(email, background_tasks, tenant_id)
 
     return {"message": OTP_SENT}
@@ -247,10 +238,8 @@ async def login_otp_verify(
     """
     Step 2 of Passwordless Login: Verify OTP and issue tokens.
     """
-    # Verify OTP
     await OTPHandler.verify_otp(verify_data.email, verify_data.otp, tenant_id)
 
-    # Get user
     user = await user_service.get_user_by_email(db, verify_data.email, tenant_id)
     if not user:
         raise HTTPException(
@@ -260,7 +249,6 @@ async def login_otp_verify(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
 
-    # Check if tenant is active (if user has a tenant)
     if user.tenant_id and user.tenant:
         if user.tenant.is_deleted or user.tenant.status == TenantStatus.INACTIVE:
             raise HTTPException(
@@ -374,13 +362,12 @@ async def change_password(
     return True
 
 
-async def logout(db: AsyncSession, user: User, refresh_token_jti: str) -> bool:
+async def logout(
+    db: AsyncSession, user: User, refresh_token_jti: str, expires_at: datetime
+) -> bool:
     """
     Logout user by blacklisting their refresh token.
     """
-    # For now, set a far future date (tokens will be cleaned up periodically)
-    expires_at = datetime.now(UTC) + timedelta(days=30)
-
     await blacklist_crud.blacklist_token(db, user.id, refresh_token_jti, expires_at)
     await db.commit()
 

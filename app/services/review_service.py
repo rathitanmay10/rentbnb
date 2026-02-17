@@ -18,6 +18,7 @@ from app.schemas.review import (
 async def create_review(
     db: AsyncSession, review: ReviewCreate, booking_id: UUID, current_user: User
 ) -> ReviewResponse:
+    """Create a review for a booking."""
     booking = await booking_crud.get_booking_with_review(
         db, booking_id, current_user.id
     )
@@ -71,6 +72,7 @@ async def get_reviews_by_property_id(
     limit: int = 10,
     rating: int | None = None,
 ) -> PropertyReviewListResponse:
+    """Get reviews for a property."""
     property_obj = await property_crud.get_property(db, property_id)
     if not property_obj:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -97,6 +99,7 @@ async def get_review_by_id(
     review_id: UUID,
     current_user: User,
 ) -> ReviewResponse:
+    """Get review by ID."""
     review = await review_crud.get_review_by_id(db, review_id)
     if review is None:
         raise HTTPException(
@@ -116,6 +119,7 @@ async def update_review(
     review_update: ReviewUpdate,
     current_user: User,
 ) -> ReviewResponse:
+    """Update a review."""
     review_obj = await review_crud.get_review_by_id(db, review_id)
     if review_obj is None:
         raise HTTPException(
@@ -150,6 +154,7 @@ async def delete_review(
     review_id: UUID,
     current_user: User,
 ) -> None:
+    """Delete a review."""
     review_obj = await review_crud.get_review_by_id(db, review_id)
     if review_obj is None:
         raise HTTPException(

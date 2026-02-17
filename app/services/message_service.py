@@ -94,6 +94,7 @@ async def create_system_notification(
 async def get_booking_messages(
     db: AsyncSession, user: User, booking_id: UUID, skip: int = 0, limit: int = 50
 ):
+    """Get messages for a booking."""
     booking = await booking_crud.get_booking(db, booking_id)
     if not booking:
         raise HTTPException(

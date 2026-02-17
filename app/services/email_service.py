@@ -1,5 +1,3 @@
-"""Email service using SMTP (e.g., Gmail)."""
-
 import logging
 from email.message import EmailMessage
 

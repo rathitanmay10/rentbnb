@@ -12,6 +12,7 @@ from app.enums import BookingStatus, PaymentStatus, UserRole
 from app.models import User
 from app.schemas.booking import BookingCreate
 from app.services import message_service, payment_service
+from app.tasks import expire_pending_booking, refund_payment_task
 from app.tasks.email_tasks import send_email_task
 from app.utils.email_utils import build_booking_email
 
@@ -31,7 +32,7 @@ async def create_booking(
         raise HTTPException(status_code=404, detail="Property not found")
     if not property_obj.is_active:
         raise HTTPException(status_code=403, detail="Property is not active")
-    # Check availability manually (since we have the lock, this is safe)
+    # Check availability manually
     # The lock ensures no one else is booking this property right now.
     conflict = await booking_crud.check_availability(
         db, data.property_id, data.check_in, data.check_out
@@ -88,11 +89,7 @@ async def create_booking(
         },
     )
 
-    # Commit the transaction to persist payment
     await db.commit()
-
-    # Schedule expiry task (Celery)
-    from app.tasks.booking_tasks import expire_pending_booking
 
     expire_pending_booking.apply_async(args=[str(booking.id)], eta=booking.expires_at)
 
@@ -136,8 +133,6 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
             payments = await payment_crud.get_payments_by_booking(db, booking.id)
             for payment in payments:
                 if payment.status == PaymentStatus.PAID:
-                    from app.tasks.payment_tasks import refund_payment_task
-
                     refund_payment_task.delay(str(payment.id))
 
     await booking_crud.update_booking(

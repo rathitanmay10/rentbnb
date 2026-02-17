@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -250,10 +251,12 @@ async def logout(
             options={"verify_exp": False},
         )
         jti = payload.get("jti")
+        exp = payload.get("exp")
+        expires_at = datetime.fromtimestamp(exp, tz=UTC)
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token"
         )
 
-    await auth_service.logout(db, current_user, jti)
+    await auth_service.logout(db, current_user, jti, expires_at)
     return {"message": "Logged out successfully"}

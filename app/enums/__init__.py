@@ -4,6 +4,7 @@ from app.enums.payment_status import PaymentStatus
 from app.enums.property_category import PropertyCategory
 from app.enums.tenant_status import TenantStatus
 from app.enums.user_role import UserRole
+from app.enums.webhook_events import WebhookEvents
 
 __all__ = [
     "BookingStatus",
@@ -12,4 +13,5 @@ __all__ = [
     "PropertyCategory",
     "TenantStatus",
     "UserRole",
+    "WebhookEvents",
 ]

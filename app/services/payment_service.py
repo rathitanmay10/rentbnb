@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.crud import booking_crud, payment_crud, property_crud, user_crud, webhook_crud
-from app.enums import BookingStatus, PaymentStatus
+from app.enums import BookingStatus, PaymentStatus, WebhookEvents
 from app.services import message_service
 from app.tasks.email_tasks import send_email_task
 from app.utils.email_utils import build_booking_email
@@ -58,29 +58,18 @@ async def process_webhook(
     db: AsyncSession, payload: dict, body: bytes, signature: str, event_id: str
 ):
     """Process Razorpay webhook."""
-    # 1. Verify signature
     if not settings.RAZORPAY_WEBHOOK_SECRET:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Webhook secret not configured",
         )
 
-    logger.info(
-        f"Webhook secret configured: {settings.RAZORPAY_WEBHOOK_SECRET[:10]}..."
-    )
-    logger.info(f"Received signature: {signature[:20]}...")
-    logger.info(f"Body type: {type(body)}, length: {len(body)}")
-
     try:
         client = RazorpayClient.get_client()
-        # Razorpay expects body as string, not bytes
         body_str = body.decode("utf-8")
-        logger.info(f"Verifying signature with body string length: {len(body_str)}")
-
         client.utility.verify_webhook_signature(
             body_str, signature, settings.RAZORPAY_WEBHOOK_SECRET
         )
-        logger.info("Webhook signature verified successfully")
     except Exception as e:
         logger.error(f"Signature verification failed: {type(e).__name__}: {e}")
         raise HTTPException(
@@ -91,16 +80,13 @@ async def process_webhook(
     event_id = event_id
     event_type = payload.get("event")
 
-    # 2. Deduplication & Idempotency
     webhook = await webhook_crud.get_webhook_by_event_id(db, event_id)
 
     if webhook:
         if webhook.processed:
             return {"status": "ignored", "reason": "already_processed"}
-        # If exists but not processed, we continue to processing
         logger.info(f"Retrying processing for existing webhook {event_id}")
     else:
-        # 3. Store webhook
         webhook = await webhook_crud.create_webhook(
             db,
             {
@@ -111,26 +97,23 @@ async def process_webhook(
                 "tenant_id": None,
             },
         )
-        # We commit here to ensure we have the record
         await db.commit()
 
-    # 4. Process event
     try:
-        if event_type == "payment.captured":
+        if event_type == WebhookEvents.PAYMENT_CAPTURED:
             await _handle_payment_captured(db, payload)
-        elif event_type == "payment.failed":
+        elif event_type == WebhookEvents.PAYMENT_FAILED:
             await _handle_payment_failed(db, payload)
-        elif event_type == "refund.processed":
+        elif event_type == WebhookEvents.REFUND_PROCESSED:
             await _handle_refund_processed(db, payload)
-        elif event_type == "refund.created":
+        elif event_type == WebhookEvents.REFUND_CREATED:
             logger.info(f"Refund created for event {event_id}")
-        elif event_type == "refund.failed":
+        elif event_type == WebhookEvents.REFUND_FAILED:
             logger.error(f"Refund failed for event {event_id}")
 
         await webhook_crud.mark_webhook_processed(db, webhook.id)
         await db.commit()
     except Exception as e:
-        # Log error, webhook remains unprocessed
         raise e
 
     return {"status": "processed"}
@@ -140,23 +123,20 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
     payment_entity = payload["payload"]["payment"]["entity"]
     order_id = payment_entity["order_id"]
     payment_id = payment_entity["id"]
-    amount = payment_entity["amount"] / 100  # Convert back to main unit
+    amount = payment_entity["amount"] / 100
 
     payment = await payment_crud.get_payment_by_order_id(db, order_id)
     if not payment:
-        return  # Should not happen if flow is correct
+        return
 
     booking = await booking_crud.get_booking(db, payment.booking_id)
     if not booking:
         return
 
-    # Amount mismatch check
     if float(payment.amount) != float(amount):
-        # Mark payment failed
         await payment_crud.update_payment(
             db, payment.id, status=PaymentStatus.FAILED, razorpay_payment_id=payment_id
         )
-        # Attempt refund
         await process_refund(db, payment.id)
 
         await message_service.create_system_notification(
@@ -170,18 +150,14 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
                 email, subject, body = build_booking_email(
                     guest.email, booking, property_obj
                 )
-                # Override subject for failure
                 subject = "Payment Failed: Amount Mismatch"
                 body = f"Your payment for booking {booking.id} failed due to amount mismatch. Refund initiated."
                 send_email_task.delay(email, subject, body)
         return
 
-    # Update payment
     await payment_crud.update_payment(
         db, payment.id, status=PaymentStatus.PAID, razorpay_payment_id=payment_id
     )
-
-    # Update booking
     if booking.status == BookingStatus.PENDING:
         await booking_crud.update_booking(
             db, booking.id, status=BookingStatus.CONFIRMED
@@ -199,14 +175,12 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
                 send_email_task.delay(email, subject, body)
 
     elif booking.status == BookingStatus.CANCELLED:
-        # Late payment - Booking already cancelled/expired
         logger.info(
             f"Payment captured for cancelled booking {booking.id}. Initiating refund."
         )
         await process_refund(db, payment.id)
 
     await db.commit()
-    # Payment status will be updated to REFUNDED by process_refund if successful
 
 
 async def _handle_payment_failed(db: AsyncSession, payload: dict):
@@ -217,15 +191,8 @@ async def _handle_payment_failed(db: AsyncSession, payload: dict):
     if payment:
         await payment_crud.update_payment(db, payment.id, status=PaymentStatus.FAILED)
 
-        # Send email
-        # Ideally we should also get booking to notify user
-        # Payment -> Booking
         booking = await booking_crud.get_booking(db, payment.booking_id)
         if booking:
-            from app.crud import user_crud
-            from app.tasks.email_tasks import send_email_task
-            from app.utils.email_utils import build_booking_email
-
             guest = await user_crud.get_user(db, booking.guest_id)
             if guest and guest.email:
                 property_obj = await property_crud.get_property(db, booking.property_id)
@@ -241,6 +208,7 @@ async def _handle_payment_failed(db: AsyncSession, payload: dict):
 
 
 async def process_refund(db: AsyncSession, payment_id: UUID):
+    """Process refund for a payment."""
     payment = await payment_crud.get_payment(db, payment_id)
     if not payment:
         return
@@ -258,6 +226,7 @@ async def process_refund(db: AsyncSession, payment_id: UUID):
 
 
 async def _handle_refund_processed(db: AsyncSession, payload: dict):
+    """Handle refund processed webhook."""
     payload_data = payload.get("payload", {})
     refund_entity = payload_data.get("refund", {}).get("entity", {})
     payment_id = refund_entity.get("payment_id")
@@ -280,16 +249,13 @@ async def check_payment_status(db: AsyncSession, payment_id: UUID):
         return
 
     try:
-        # poll for payments associated with order
         response = await RazorpayClient.fetch_order_payments(payment.razorpay_order_id)
         items = response.get("items", [])
 
         for item in items:
             if item["status"] == "captured":
-                # Verify amount
                 amount_paid = item["amount"] / 100
                 if amount_paid == float(payment.amount):
-                    # Success
                     await payment_crud.update_payment(
                         db,
                         payment.id,
@@ -297,7 +263,6 @@ async def check_payment_status(db: AsyncSession, payment_id: UUID):
                         razorpay_payment_id=item["id"],
                     )
 
-                    # Update booking
                     booking = await booking_crud.get_booking(db, payment.booking_id)
                     if not booking:
                         return
@@ -313,11 +278,6 @@ async def check_payment_status(db: AsyncSession, payment_id: UUID):
                             booking.tenant_id,
                         )
 
-                        # Send email
-                        from app.crud import user_crud
-                        from app.tasks.email_tasks import send_email_task
-                        from app.utils.email_utils import build_booking_email
-
                         guest = await user_crud.get_user(db, booking.guest_id)
                         if guest and guest.email:
                             property_obj = await property_crud.get_property(
@@ -330,7 +290,6 @@ async def check_payment_status(db: AsyncSession, payment_id: UUID):
                                 send_email_task.delay(email, subject, body)
 
                     elif booking.status == BookingStatus.CANCELLED:
-                        # Late payment detected via polling
                         logger.info(
                             f"Polling detected payment for cancelled booking {booking.id}. Initiating refund."
                         )

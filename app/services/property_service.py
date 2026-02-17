@@ -18,6 +18,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 async def create_property(db: AsyncSession, user: User, data: PropertyCreate) -> dict:
+    """Create a new property."""
     if user.role not in [UserRole.TENANT_ADMIN, UserRole.MANAGER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -54,6 +55,7 @@ async def create_property(db: AsyncSession, user: User, data: PropertyCreate) ->
 
 
 async def delete_property(db: AsyncSession, user: User, property_id: UUID):
+    """Delete a property."""
     prop = await property_crud.get_property(db, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -78,6 +80,7 @@ async def delete_property(db: AsyncSession, user: User, property_id: UUID):
 async def upload_property_image(
     db: AsyncSession, user: User, property_id: UUID, file: UploadFile
 ):
+    """Upload an image for a property."""
     property_obj = await property_crud.get_property(db, property_id)
     if not property_obj:
         raise HTTPException(
@@ -122,6 +125,7 @@ async def upload_property_image(
 async def delete_property_image(
     db: AsyncSession, user: User, property_id: UUID, image_id: UUID
 ):
+    """Delete an image from a property."""
     image = await property_crud.get_image(db, image_id, property_id)
     if not image:
         raise HTTPException(
@@ -143,6 +147,7 @@ async def delete_property_image(
 
 
 def can_edit_property(user: User, property_obj) -> bool:
+    """Check if the user can edit the property."""
     if user.tenant_id != property_obj.tenant_id:
         return False
     if user.role == UserRole.TENANT_ADMIN:

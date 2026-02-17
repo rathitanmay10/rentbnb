@@ -76,10 +76,7 @@ async def update_tenant(
 
 async def soft_delete_tenant_cascade(db: AsyncSession, tenant_id: UUID) -> bool:
     """
-    Soft delete tenant and all associated users.
-
-    Returns:
-        True if successful, False if tenant not found
+    Soft delete tenant and all associated users and properties.
     """
     tenant = await tenant_crud.get_tenant(db, tenant_id)
     if not tenant:

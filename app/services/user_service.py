@@ -20,25 +20,22 @@ async def create_user(
         ValueError: If email or username already exists, or tenant is invalid
     """
     # Check email uniqueness (case-insensitive) scoped to tenant
-    # For global uniqueness (if tenant_id is None), it checks if email exists where tenant_id is NULL.
     existing_email = await user_crud.get_user_by_email_ci(
         db, user_data.email.lower(), tenant_id
     )
     if existing_email:
         raise ValueError("Email already registered")
 
-    # Check username uniqueness (case-insensitive)
+    # Check username uniqueness (case-insensitive) scoped to tenant
     existing_username = await user_crud.get_user_by_username_ci(
-        db, user_data.username.lower()
+        db, user_data.username.lower(), tenant_id
     )
     if existing_username:
         raise ValueError("Username already taken")
 
-    # Prepare user dict
     user_dict = user_data.model_dump(exclude={"password"})
     user_dict["hashed_password"] = hash_password(user_data.password)
 
-    # Validators already normalize to lowercase, but ensure it
     user_dict["username"] = user_dict["username"].lower()
     user_dict["email"] = user_dict["email"].lower()
 
@@ -72,11 +69,9 @@ async def get_users(
     - SUPER_ADMIN sees all users
     - Other roles only see their tenant's users
     """
-    # SUPER_ADMIN sees all users
     if current_user.role == UserRole.SUPER_ADMIN:
         tenant_id = None
     else:
-        # Other roles only see their tenant's users
         tenant_id = current_user.tenant_id
 
     users = await user_crud.get_users(db, skip, limit, tenant_id)
