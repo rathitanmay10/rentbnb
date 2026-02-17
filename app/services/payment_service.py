@@ -147,7 +147,7 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
         await message_service.create_system_notification(
             db, booking.id, "Payment failed: Amount mismatch", booking.tenant_id
         )
-
+        logger.info(f"Payment failed for booking {booking.id}: Amount mismatch")
         guest = await user_crud.get_user(db, booking.guest_id)
         if guest and guest.email:
             property_obj = await property_crud.get_property(db, booking.property_id)
@@ -166,6 +166,9 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
     if booking.status == BookingStatus.PENDING:
         await booking_crud.update_booking(
             db, booking.id, status=BookingStatus.CONFIRMED
+        )
+        logger.info(
+            f"Booking {booking.id} marked as CONFIRMED via payment verification"
         )
         await message_service.create_system_notification(
             db, booking.id, "Booking confirmed! Payment successful.", booking.tenant_id
@@ -199,6 +202,15 @@ async def _handle_payment_failed(db: AsyncSession, payload: dict):
         booking = await booking_crud.get_booking(db, payment.booking_id)
         if booking:
             guest = await user_crud.get_user(db, booking.guest_id)
+            await booking_crud.update_booking(
+                db, booking.id, status=BookingStatus.FAILED
+            )
+            logger.info(
+                f"Booking {booking.id} marked as FAILED via payment verification"
+            )
+            await message_service.create_system_notification(
+                db, booking.id, "Booking failed! Payment failed.", booking.tenant_id
+            )
             if guest and guest.email:
                 property_obj = await property_crud.get_property(db, booking.property_id)
                 if property_obj:

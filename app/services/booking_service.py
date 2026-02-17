@@ -184,8 +184,7 @@ async def expire_booking(booking_id: UUID, db: AsyncSession):
         await booking_crud.update_booking(
             db,
             booking.id,
-            status=BookingStatus.CANCELLED,
-            cancelled_at=datetime.now(UTC),
+            status=BookingStatus.FAILED,
         )
 
         await db.commit()
