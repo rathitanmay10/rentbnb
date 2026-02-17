@@ -122,12 +122,13 @@ async def websocket_endpoint(
             while True:
                 data = await websocket.receive_text()
 
-                if len(data) > 2000:
-                    await websocket.send_json({"error": "Message too long"})
-                    continue
                 data = data.strip()
                 if not data:
                     await websocket.send_json({"error": "Empty message"})
+                    continue
+
+                if len(data) > 2000:
+                    await websocket.send_json({"error": "Message too long"})
                     continue
 
                 await message_service.create_user_message(

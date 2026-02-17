@@ -157,6 +157,8 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
 
     await db.commit()
 
+    logger.info(f"Booking {booking.id} cancelled by {user.id}")
+
     await message_service.create_system_notification(
         db, booking.id, "Booking cancelled.", booking.tenant_id
     )

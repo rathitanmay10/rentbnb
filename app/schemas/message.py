@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, field_validator
 
 from app.enums import MessageType
 
 
 class MessageCreate(BaseModel):
-    content: str = Field(..., min_length=1, max_length=2000)
+    content: str
 
     @field_validator("content")
     @classmethod
@@ -15,6 +15,8 @@ class MessageCreate(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Content cannot be empty or just whitespace")
+        if len(v) > 2000:
+            raise ValueError("Content cannot be longer than 2000 characters")
         return v
 
 
