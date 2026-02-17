@@ -5,17 +5,18 @@ import sys
 from app.config.settings import settings
 
 
-def setup_logging():
+def setup_logging(log_file: str = "logs/app.log"):
     """
     Configure logging for the application.
+
+    Args:
+        log_file: Path to the log file (default: "logs/app.log")
     """
     logging_level = logging.INFO
     if settings.DEBUG:
         logging_level = logging.DEBUG
 
     handlers = [logging.StreamHandler(sys.stdout)]
-
-    log_file = "logs/app.log"
 
     if not os.path.exists("logs"):
         os.makedirs("logs")
