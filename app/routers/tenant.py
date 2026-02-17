@@ -131,5 +131,8 @@ async def delete_tenant(
     - Cascades to all users in the tenant
     - Data is not physically deleted, just marked as deleted
     """
-    await tenant_service.soft_delete_tenant_cascade(db, tenant_id)
+    try:
+        await tenant_service.soft_delete_tenant_cascade(db, tenant_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return
