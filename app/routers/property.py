@@ -6,6 +6,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants.rate_limit import (
+    PROPERTY_LIST_LIMIT_SECONDS,
+    PROPERTY_LIST_LIMIT_TIMES,
+)
 from app.crud import booking_crud, property_crud
 from app.database.init_db import get_db
 from app.dependencies import (
@@ -14,6 +18,7 @@ from app.dependencies import (
     require_roles,
     verify_tenant_property_access,
 )
+from app.dependencies.rate_limit import RateLimiter
 from app.enums import PropertyCategory, UserRole
 from app.models.user import User
 from app.schemas.property import (
@@ -69,6 +74,11 @@ async def list_properties(
     guests: int | None = Query(None, ge=1),
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(
+        RateLimiter(
+            times=PROPERTY_LIST_LIMIT_TIMES, seconds=PROPERTY_LIST_LIMIT_SECONDS
+        )
+    ),
 ):
     if tenant_id is None:
         raise HTTPException(

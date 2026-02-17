@@ -7,8 +7,10 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
+from app.constants.rate_limit import AUTH_LIMIT_SECONDS, AUTH_LIMIT_TIMES
 from app.database.init_db import get_db
 from app.dependencies import get_current_user
+from app.dependencies.rate_limit import RateLimiter
 from app.dependencies.tenant import get_tenant_id_from_header
 from app.models import User
 from app.schemas.auth import (
@@ -43,6 +45,7 @@ async def register(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Register a new user (guest by default).
@@ -65,6 +68,7 @@ async def register(
 async def verify_email(
     verify_data: VerifyEmailSchema,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Verify email using the token sent via email.
@@ -85,6 +89,7 @@ async def resend_verify(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Resend Verification Email
@@ -104,6 +109,7 @@ async def login_password(
     login_data: LoginSchema,
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Standard login with email and password.
@@ -121,6 +127,7 @@ async def login_otp_init(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Initiate passwordless login. Sends OTP to email.
@@ -139,6 +146,7 @@ async def login_otp_verify(
     verify_data: VerifyLoginSchema,
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Complete passwordless login by verifying OTP.
@@ -198,6 +206,7 @@ async def forgot_password(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Request password reset link.
@@ -218,6 +227,7 @@ async def reset_password(
     data: ResetPasswordSchema,
     db: AsyncSession = Depends(get_db),
     tenant_id: UUID | None = Depends(get_tenant_id_from_header),
+    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
 ):
     """
     Reset password using token.
