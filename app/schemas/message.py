@@ -7,7 +7,7 @@ from app.enums import MessageType
 
 
 class MessageCreate(BaseModel):
-    content: str = Field(..., min_length=1, max_length=5000)
+    content: str = Field(..., min_length=1, max_length=2000)
 
     @field_validator("content")
     @classmethod

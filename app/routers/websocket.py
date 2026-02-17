@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.settings import settings
 from app.constants.jwt import TOKEN_TYPE_ACCESS
+from app.core.settings import settings
 from app.crud import booking_crud
 from app.database.init_db import get_db
 from app.enums import TenantStatus, UserRole
@@ -121,6 +121,15 @@ async def websocket_endpoint(
         try:
             while True:
                 data = await websocket.receive_text()
+
+                if len(data) > 2000:
+                    await websocket.send_json({"error": "Message too long"})
+                    continue
+                data = data.strip()
+                if not data:
+                    await websocket.send_json({"error": "Empty message"})
+                    continue
+
                 await message_service.create_user_message(
                     db=db,
                     user=user,
