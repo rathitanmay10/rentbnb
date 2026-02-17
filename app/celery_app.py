@@ -1,7 +1,15 @@
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import setup_logging
 
 from app.config.settings import settings
+from app.core.logger import setup_logging as app_setup_logging
+
+
+@setup_logging.connect
+def config_loggers(*args, **kwargs):
+    app_setup_logging()
+
 
 celery_app = Celery(
     "rentbnb",
