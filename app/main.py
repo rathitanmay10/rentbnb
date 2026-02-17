@@ -68,9 +68,9 @@ api_v1.include_router(payment.router)
 api_v1.include_router(message.router)
 api_v1.include_router(review.router)
 api_v1.include_router(dashboard.router)
-api_v1.include_router(websocket.router)
 
 app.include_router(api_v1)
+app.include_router(websocket.router)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
