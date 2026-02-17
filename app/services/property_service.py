@@ -4,9 +4,11 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import aiofiles
+import aiofiles.os
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants.property import MAX_SIZE
 from app.crud import booking_crud, property_crud, user_crud
 from app.enums import UserRole
 from app.models.user import User
@@ -111,8 +113,15 @@ async def upload_property_image(
     file_path = os.path.join(property_dir, new_filename)
 
     try:
+        size = 0
         async with aiofiles.open(file_path, "wb") as buffer:
             while content := await file.read(64 * 1024):
+                size += len(content)
+                if size > MAX_SIZE:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="File size exceeds limit",
+                    )
                 await buffer.write(content)
         url = f"/uploads/{property_id}/{new_filename}"
         return await property_crud.add_property_image(db, property_id, url)

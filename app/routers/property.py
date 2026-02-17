@@ -147,6 +147,9 @@ async def delete_property_image(
     user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
 ):
     await property_service.delete_property_image(db, user, property_id, image_id)
+    logger.info(
+        f"Image {image_id} deleted for property {property_id} by user {user.id}"
+    )
 
 
 @router.get("/{property_id}/check_availability", status_code=status.HTTP_200_OK)
