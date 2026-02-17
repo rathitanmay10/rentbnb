@@ -7,8 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.config.settings import settings
 from app.core.logger import setup_logging
+from app.core.settings import settings
 from app.routers import (
     amenity,
     auth,

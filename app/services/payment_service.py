@@ -4,9 +4,9 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.constants.payment import DEFAULT_CURRENCY
 from app.constants.razorpay import RAZORPAY_STATUS_CAPTURED
+from app.core import settings
 from app.crud import booking_crud, payment_crud, property_crud, user_crud, webhook_crud
 from app.enums import BookingStatus, PaymentStatus, WebhookEvents
 from app.services import message_service

@@ -6,12 +6,12 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.settings import settings
 from app.constants.booking import (
     BOOKING_EXPIRATION_MINUTES,
     CANCELLATION_REFUND_THRESHOLD_DAYS,
 )
 from app.constants.payment import COMMISSION_PERCENTAGE, DEFAULT_CURRENCY
+from app.core.settings import settings
 from app.crud import booking_crud, payment_crud, property_crud, user_crud
 from app.enums import BookingStatus, PaymentStatus, UserRole
 from app.models import User

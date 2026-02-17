@@ -7,7 +7,6 @@ from fastapi import BackgroundTasks, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.settings import settings
 from app.constants.auth_ttl import (
     EMAIL_VERIFY_TTL,
     RESEND_WAIT_SECONDS,
@@ -27,6 +26,7 @@ from app.constants.redis_keys import (
     REDIS_VERIFICATION_TOKEN,
     get_tenant_prefix,
 )
+from app.core.settings import settings
 from app.crud import blacklist_crud, user_crud
 from app.enums import TenantStatus, UserRole
 from app.models import User

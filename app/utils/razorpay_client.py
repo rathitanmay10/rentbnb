@@ -2,7 +2,7 @@ import razorpay
 from fastapi import HTTPException, status
 from starlette.concurrency import run_in_threadpool
 
-from app.config import settings
+from app.core import settings
 
 
 class RazorpayClient:

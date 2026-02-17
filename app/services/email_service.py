@@ -3,7 +3,7 @@ from email.message import EmailMessage
 
 import aiosmtplib
 
-from app.config.settings import settings
+from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
 

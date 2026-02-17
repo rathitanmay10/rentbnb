@@ -2,7 +2,7 @@
 
 from redis.asyncio import Redis, from_url
 
-from app.config.settings import settings
+from app.core.settings import settings
 
 
 class RedisClient:

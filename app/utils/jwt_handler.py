@@ -3,8 +3,8 @@ from uuid import uuid4
 
 from jose import jwt
 
-from app.config import settings
 from app.constants.jwt import TOKEN_TYPE_ACCESS, TOKEN_TYPE_REFRESH
+from app.core import settings
 
 SECRET = settings.SECRET_KEY
 ALGO = settings.ALGORITHM

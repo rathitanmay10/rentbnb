@@ -4,13 +4,13 @@ from celery import Celery
 from celery.schedules import crontab
 from celery.signals import setup_logging
 
-from app.config.settings import settings
 from app.constants.celery_schedule import (
     PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
     TOKEN_CLEANUP_CRON_HOUR,
     TOKEN_CLEANUP_CRON_MINUTE,
 )
 from app.core.logger import setup_logging as app_setup_logging
+from app.core.settings import settings
 
 
 @setup_logging.connect
