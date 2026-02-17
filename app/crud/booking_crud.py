@@ -165,27 +165,6 @@ async def get_tenant_future_bookings(db: AsyncSession, user_id: UUID) -> list[Bo
     return list(result.scalars().all())
 
 
-async def check_property_availability(
-    db: AsyncSession,
-    property_id: UUID,
-    check_in: date,
-    check_out: date,
-) -> Booking | None:
-    """
-    Check if property is available for given dates.
-    Returns conflicting booking if unavailable, None if available.
-    """
-
-    query = select(Booking).where(
-        Booking.property_id == property_id,
-        Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
-        Booking.check_in < check_out,
-        Booking.check_out > check_in,
-    )
-    result = await db.execute(query)
-    return result.scalars().first()
-
-
 async def get_booking_with_review(
     db: AsyncSession, booking_id: UUID, user_id: UUID
 ) -> Booking | None:
