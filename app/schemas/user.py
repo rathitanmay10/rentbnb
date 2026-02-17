@@ -4,7 +4,12 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.enums import UserRole
-from app.utils.validators import validate_password, validate_username
+from app.utils.validators import (
+    validate_first_name,
+    validate_last_name,
+    validate_password,
+    validate_username,
+)
 
 
 class UserBase(BaseModel):
@@ -18,6 +23,8 @@ class UserCreate(UserBase):
     password: str
     tenant_id: UUID | None = None
     role: UserRole = UserRole.GUEST
+    first_name: str | None = None
+    last_name: str | None = None
 
     @field_validator("username")
     @classmethod
@@ -29,6 +36,16 @@ class UserCreate(UserBase):
     def _validate_password(cls, v):
         return validate_password(v)
 
+    @field_validator("first_name")
+    @classmethod
+    def _validate_first_name(cls, v: str | None) -> str | None:
+        return validate_first_name(v)
+
+    @field_validator("last_name")
+    @classmethod
+    def _validate_last_name(cls, v: str | None) -> str | None:
+        return validate_last_name(v)
+
 
 class SuperAdminUserCreate(UserCreate):
     tenant_id: UUID
@@ -37,12 +54,41 @@ class SuperAdminUserCreate(UserCreate):
 
 class UserUpdate(BaseModel):
     is_active: bool | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+
+    @field_validator("first_name")
+    @classmethod
+    def _validate_first_name(cls, v: str | None) -> str | None:
+        return validate_first_name(v)
+
+    @field_validator("last_name")
+    @classmethod
+    def _validate_last_name(cls, v: str | None) -> str | None:
+        return validate_last_name(v)
+
+
+class UserSelfUpdate(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+
+    @field_validator("first_name")
+    @classmethod
+    def _validate_first_name(cls, v: str | None) -> str | None:
+        return validate_first_name(v)
+
+    @field_validator("last_name")
+    @classmethod
+    def _validate_last_name(cls, v: str | None) -> str | None:
+        return validate_last_name(v)
 
 
 class UserResponse(BaseModel):
     id: UUID
     username: str
     email: EmailStr
+    first_name: str | None
+    last_name: str | None
     role: UserRole
     tenant_id: UUID | None
     is_active: bool

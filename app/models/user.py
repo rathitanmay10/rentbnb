@@ -33,6 +33,8 @@ class User(Base):
     )
     username: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    first_name: Mapped[str] = mapped_column(String(150), nullable=True)
+    last_name: Mapped[str] = mapped_column(String(150), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     token_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     role: Mapped[UserRole] = mapped_column(
