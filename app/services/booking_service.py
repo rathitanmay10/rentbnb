@@ -12,8 +12,7 @@ from app.enums import BookingStatus, PaymentStatus, UserRole
 from app.models import User
 from app.schemas.booking import BookingCreate
 from app.services import message_service, payment_service
-from app.tasks import expire_pending_booking, refund_payment_task
-from app.tasks.email_tasks import send_email_task
+from app.tasks import booking_tasks, email_tasks, payment_tasks
 from app.utils.email_utils import build_booking_email
 
 
@@ -91,7 +90,9 @@ async def create_booking(
 
     await db.commit()
 
-    expire_pending_booking.apply_async(args=[str(booking.id)], eta=booking.expires_at)
+    booking_tasks.expire_pending_booking.apply_async(
+        args=[str(booking.id)], eta=booking.expires_at
+    )
 
     return {
         "booking_id": booking.id,
@@ -133,7 +134,7 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
             payments = await payment_crud.get_payments_by_booking(db, booking.id)
             for payment in payments:
                 if payment.status == PaymentStatus.PAID:
-                    refund_payment_task.delay(str(payment.id))
+                    payment_tasks.refund_payment_task.delay(str(payment.id))
 
     await booking_crud.update_booking(
         db,
@@ -155,7 +156,7 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
             email, subject, body = build_booking_email(
                 guest.email, booking, property_obj
             )
-            send_email_task.delay(email, subject, body)
+            email_tasks.send_email_task.delay(email, subject, body)
 
     return booking
 
@@ -187,4 +188,4 @@ async def expire_booking(booking_id: UUID, db: AsyncSession):
                 email, subject, body = build_booking_email(
                     guest.email, booking, property_obj
                 )
-                send_email_task.delay(email, subject, body)
+                email_tasks.send_email_task.delay(email, subject, body)
