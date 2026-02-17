@@ -18,6 +18,7 @@ A modern, scalable backend for a property rental management platform built with 
 - **Email Verification**: Automated email-based account verification
 - **Password Management**: Secure password hashing with bcrypt, forgot password/reset flow
 - **Token Management**: Automatic token cleanup via scheduled tasks (every 6 hours)
+- **Rate Limiting**: Intelligent IP-based rate limiting for sensitive endpoints (Auth, OTP) using Redis atomic counters
 - **Soft Delete Pattern**: Data retention with soft-delete for users, tenants, and other entities
 
 ### Property & Amenity Management
@@ -64,6 +65,7 @@ A modern, scalable backend for a property rental management platform built with 
 - **Redis Integration**: Caching for OTP, verification tokens, and session data
 - **Static File Serving**: Dedicated endpoints for uploaded images and static assets
 - **File Upload Handling**: Secure multipart file uploads with validation
+- **Rate Limiting**: Custom Redis-based rate limiter with atomic counters to prevent abuse (IP-based tracking)
 
 ## Tech Stack
 
