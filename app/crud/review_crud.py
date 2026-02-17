@@ -12,6 +12,7 @@ from app.schemas.review import (
 
 
 async def get_review_by_id(db: AsyncSession, review_id: UUID) -> ReviewResponse | None:
+    """Get a review by ID."""
     result = await db.execute(select(Review).where(Review.id == review_id))
     return result.scalar_one_or_none()
 
@@ -24,6 +25,7 @@ async def get_reviews_by_property_id(
     limit: int = 10,
     rating: int | None = None,
 ) -> tuple[list[Review], int]:
+    """Get reviews for a property."""
     query = select(Review).where(
         Review.property_id == property_id, Review.tenant_id == tenant_id
     )
@@ -39,6 +41,7 @@ async def get_reviews_by_property_id(
 async def get_reviews_by_guest_id(
     db: AsyncSession, guest_id: UUID, skip: int = 0, limit: int = 10
 ) -> list[ReviewResponse]:
+    """Get reviews for a guest."""
     result = await db.execute(
         select(Review).where(Review.guest_id == guest_id).offset(skip).limit(limit)
     )
@@ -53,6 +56,7 @@ async def create_review(
     guest_id: UUID,
     tenant_id: UUID,
 ) -> Review:
+    """Create a review."""
     db_review = Review(
         **review.model_dump(),
         booking_id=booking_id,
@@ -69,6 +73,7 @@ async def create_review(
 async def update_review(
     db: AsyncSession, review_id: UUID, review: ReviewUpdate
 ) -> Review | None:
+    """Update a review."""
     result = await db.execute(select(Review).where(Review.id == review_id))
     db_review = result.scalar_one_or_none()
     if db_review is None:
@@ -81,6 +86,7 @@ async def update_review(
 
 
 async def delete_review(db: AsyncSession, review_id: UUID) -> bool:
+    """Delete a review."""
     result = await db.execute(select(Review).where(Review.id == review_id))
     db_review = result.scalar_one_or_none()
     if db_review is None:

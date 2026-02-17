@@ -15,6 +15,7 @@ from app.schemas.property import PropertyCreate, PropertyUpdate
 
 
 async def create_property(db: AsyncSession, property_data: PropertyCreate) -> Property:
+    """Create a new property."""
     property_data_dict = property_data
     amenities_ids = property_data_dict.pop("amenities", [])
 
@@ -33,6 +34,7 @@ async def create_property(db: AsyncSession, property_data: PropertyCreate) -> Pr
 
 
 async def get_property(db: AsyncSession, property_id: UUID) -> Property | None:
+    """Get a property by ID."""
     query = (
         select(Property)
         .options(selectinload(Property.images), selectinload(Property.amenities))
@@ -63,6 +65,7 @@ async def get_property_with_lock(
 async def update_property(
     db: AsyncSession, property_obj: Property, update_data: PropertyUpdate
 ) -> Property:
+    """Update a property."""
     # Update simple fields
     update_dict = update_data.model_dump(exclude_unset=True, exclude={"amenities"})
     for key, value in update_dict.items():
@@ -83,6 +86,7 @@ async def update_property(
 
 
 async def delete_property(db: AsyncSession, property_obj: Property):
+    """Soft delete a property."""
     property_obj.soft_delete()
     await db.commit()
 
@@ -98,6 +102,7 @@ async def get_properties(
     guests: int | None = None,
     tenant_id: UUID | None = None,
 ) -> tuple[list[Property], int]:
+    """Get all properties of a tenant with filters."""
     query = select(Property).filter(
         Property.is_deleted.is_(False), Property.is_active.is_(True)
     )
@@ -131,6 +136,7 @@ async def get_properties(
 async def add_property_image(
     db: AsyncSession, property_id: UUID, url: str
 ) -> PropertyImage:
+    """Add an image to a property."""
     image = PropertyImage(property_id=property_id, url=url)
     db.add(image)
     await db.commit()
@@ -141,6 +147,7 @@ async def add_property_image(
 async def get_image(
     db: AsyncSession, image_id: UUID, property_id: UUID
 ) -> PropertyImage | None:
+    """Get an image by ID."""
     query = (
         select(PropertyImage)
         .options(joinedload(PropertyImage.property))
@@ -153,6 +160,7 @@ async def get_image(
 async def get_properties_for_user(
     db: AsyncSession, user: User, skip: int = 0, limit: int = 10
 ) -> tuple[list[Property], int]:
+    """Get all properties for a user(owner/manager)."""
     query = select(Property).filter(
         Property.is_deleted.is_(False), Property.tenant_id == user.tenant_id
     )
@@ -175,6 +183,7 @@ async def get_properties_for_user(
 
 
 async def delete_image(db: AsyncSession, image: PropertyImage):
+    """Delete an image."""
     await db.delete(image)
     await db.commit()
 
