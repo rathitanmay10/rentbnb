@@ -75,3 +75,31 @@ def validate_amenity_name(v: str) -> str:
     if len(v) < 2:
         raise ValueError("Amenity name must be at least 2 characters long")
     return v
+
+
+def validate_first_name(v: str | None) -> str | None:
+    """
+    Validate first name.
+
+    Rules:
+    - Stripped of whitespace
+    - Cannot be empty if provided
+    """
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        raise ValueError("First name cannot be empty")
+    return v
+
+
+def validate_last_name(v: str | None) -> str | None:
+    """
+    Validate last name.
+
+    Rules:
+    - Stripped of whitespace
+    """
+    if v is None:
+        return None
+    return v.strip()

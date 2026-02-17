@@ -6,11 +6,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.auth_ttl import EMAIL_VERIFY_TTL
 from app.database.init_db import get_db
-from app.dependencies import get_current_user, require_tenant_or_super_admin
+from app.dependencies import (
+    get_current_user,
+    require_roles,
+    require_tenant_or_super_admin,
+)
 from app.dependencies.tenant import verify_tenant_access, verify_tenant_admin_management
 from app.enums import UserRole
 from app.models import User
-from app.schemas import UserCreate, UserListResponse, UserResponse, UserUpdate
+from app.schemas import (
+    UserCreate,
+    UserListResponse,
+    UserResponse,
+    UserSelfUpdate,
+    UserUpdate,
+)
 from app.services import email_service, user_service
 from app.utils.email_utils import build_verification_email
 from app.utils.redis_client import redis_client
@@ -156,6 +166,28 @@ async def get_user(
 
 
 @router.patch(
+    "/me",
+    response_model=UserResponse,
+    summary="Update current user profile",
+)
+async def update_me(
+    user_data: UserSelfUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update current authenticated user's profile.
+    """
+
+    try:
+        user = await user_service.update_user(db, current_user.id, user_data)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    return user
+
+
+@router.patch(
     "/{user_id}",
     response_model=UserResponse,
     summary="Update user",
@@ -193,8 +225,24 @@ async def update_user(
 
 
 @router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Self delete user",
+)
+async def delete_me(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.GUEST)),
+):
+    """
+    Guest users can delete themselves
+    """
+    await user_service.delete_user(db, current_user)
+    return
+
+
+@router.delete(
     "/{user_id}",
-    status_code=status.HTTP_404_NOT_FOUND,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft delete user",
 )
 async def delete_user(

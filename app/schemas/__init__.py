@@ -21,7 +21,13 @@ from app.schemas.tenant import (
     TenantResponse,
     TenantUpdate,
 )
-from app.schemas.user import UserCreate, UserListResponse, UserResponse, UserUpdate
+from app.schemas.user import (
+    UserCreate,
+    UserListResponse,
+    UserResponse,
+    UserSelfUpdate,
+    UserUpdate,
+)
 
 __all__ = [
     "AmenityCreate",
@@ -49,6 +55,7 @@ __all__ = [
     "UserCreate",
     "UserListResponse",
     "UserResponse",
+    "UserSelfUpdate",
     "UserUpdate",
     "VerifyEmailSchema",
 ]

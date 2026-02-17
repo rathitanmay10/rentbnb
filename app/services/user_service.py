@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import booking_crud, user_crud
 from app.enums import UserRole
 from app.models import User
-from app.schemas import UserCreate, UserUpdate
+from app.schemas import UserCreate, UserSelfUpdate, UserUpdate
 from app.utils.password import hash_password
 
 
@@ -39,13 +39,9 @@ async def create_user(
     user_dict["username"] = user_dict["username"].lower()
     user_dict["email"] = user_dict["email"].lower()
 
-    try:
-        user = await user_crud.create_user(db, user_dict)
-        await db.commit()
-        return user
-    except Exception as e:
-        await db.rollback()
-        raise e
+    user = await user_crud.create_user(db, user_dict)
+    await db.commit()
+    return user
 
 
 async def get_user(db: AsyncSession, user_id: UUID) -> User | None:
@@ -80,7 +76,7 @@ async def get_users(
 
 
 async def update_user(
-    db: AsyncSession, user_id: UUID, user_data: UserUpdate
+    db: AsyncSession, user_id: UUID, user_data: UserUpdate | UserSelfUpdate
 ) -> User | None:
     """
     Update a user.
@@ -88,14 +84,9 @@ async def update_user(
 
     updates = user_data.model_dump(exclude_unset=True)
 
-    try:
-        user = await user_crud.update_user(db, user_id, **updates)
-        if user:
-            await db.commit()
-        return user
-    except Exception as e:
-        await db.rollback()
-        raise e
+    user = await user_crud.update_user(db, user_id, **updates)
+    await db.commit()
+    return user
 
 
 async def delete_user(db: AsyncSession, target_user: User) -> bool:
