@@ -13,9 +13,7 @@ async def get_tenant(db: AsyncSession, tenant_id: UUID) -> Tenant | None:
 
 async def get_tenant_by_name_ci(db: AsyncSession, name: str) -> Tenant | None:
     """Get tenant by name (case-insensitive). Name should be pre-lowercased."""
-    query = select(Tenant).where(
-        func.lower(Tenant.name) == name, Tenant.is_deleted.is_(False)
-    )
+    query = select(Tenant).where(func.lower(Tenant.name) == name)
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
