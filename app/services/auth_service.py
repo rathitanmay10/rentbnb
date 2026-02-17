@@ -268,14 +268,24 @@ async def forgot_password(
     tenant_id: UUID | None,
 ) -> dict:
     """Generate password reset token and send email."""
+    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+    ttl = await redis_client.ttl(f"{tenant_prefix}reset:{data.email}")
+    if ttl > 0:
+        elapsed = RESET_PASSWORD_TTL - ttl
+        if elapsed < RESEND_WAIT_SECONDS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Wait before resending.",
+            )
     user = await user_service.get_user_by_email(db, data.email, tenant_id)
     if not user:
         # Don't reveal user existence
         return {"message": "If email exists, a reset link has been sent"}
 
     token = secrets.token_urlsafe(32)
-
-    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+    await redis_client.set(
+        f"{tenant_prefix}reset:{data.email}", str(user.id), expire=RESET_PASSWORD_TTL
+    )
     await redis_client.set(
         f"{tenant_prefix}reset:{token}", str(user.id), expire=RESET_PASSWORD_TTL
     )
@@ -399,5 +409,6 @@ async def reset_password(
 
     # Delete token
     await redis_client.delete(f"{tenant_prefix}reset:{data.token}")
+    await redis_client.delete(f"{tenant_prefix}reset:{user.email}")
 
     return {"message": "Password reset successful"}
