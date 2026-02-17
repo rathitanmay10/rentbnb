@@ -182,9 +182,9 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
                 )
                 send_email_task.delay(email, subject, body)
 
-    elif booking.status == BookingStatus.CANCELLED:
+    elif booking.status == BookingStatus.FAILED:
         logger.info(
-            f"Payment captured for cancelled booking {booking.id}. Initiating refund."
+            f"Payment captured for failed booking {booking.id}. Initiating refund."
         )
         await process_refund(db, payment.id)
 
