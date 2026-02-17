@@ -33,22 +33,12 @@ async def payment_callback(
     booking_id = query_params.get("booking_id", "")
     payment_id = query_params.get("payment_id", "")
 
-    razorpay_payment_id = form_data.get("razorpay_payment_id")
-    razorpay_order_id = form_data.get("razorpay_order_id")
-    razorpay_signature = form_data.get("razorpay_signature")
     redirect_url = (
         f"/static/html/payment-status.html"
         f"?token={token}"
         f"&booking_id={booking_id}"
         f"&payment_id={payment_id}"
     )
-
-    if razorpay_payment_id:
-        redirect_url += f"&razorpay_payment_id={razorpay_payment_id}"
-    if razorpay_order_id:
-        redirect_url += f"&razorpay_order_id={razorpay_order_id}"
-    if razorpay_signature:
-        redirect_url += f"&razorpay_signature={razorpay_signature}"
 
     return RedirectResponse(url=redirect_url, status_code=303)
 
