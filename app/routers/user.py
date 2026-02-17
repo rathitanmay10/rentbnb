@@ -45,6 +45,11 @@ async def create_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super admins cannot be created",
         )
+    if current_user.role == UserRole.SUPER_ADMIN and user_data.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Super Admin needs to provide tenant_id",
+        )
 
     if current_user.role == UserRole.TENANT_ADMIN:
         if user_data.role not in [UserRole.MANAGER, UserRole.GUEST]:
@@ -54,7 +59,7 @@ async def create_user(
             )
         tenant_id = current_user.tenant_id
         user_data.tenant_id = tenant_id
-    tenant_prefix = f"tenant:{tenant_id}:"
+    tenant_prefix = f"tenant:{user_data.tenant_id}:"
     if (
         await redis_client.get(f"{tenant_prefix}verification:{user_data.email}")
         is not None
