@@ -28,7 +28,7 @@ A modern, scalable backend for a property rental management platform built with 
 - **Availability Tracking**: Real-time property availability checks
 
 ### Booking & Payment System
-- **Booking System**: Full booking lifecycle management with status tracking (PENDING, CONFIRMED, CANCELLED, COMPLETED)
+- **Booking System**: Full booking lifecycle management with status tracking (PENDING, CONFIRMED, CANCELLED, FAILED)
 - **Availability Checks**: Prevent double-bookings with date range validation
 - **Payment Integration**: Razorpay payment gateway with order creation and verification
 - **Refund Processing**: Automated refund handling via Celery tasks
@@ -43,8 +43,8 @@ A modern, scalable backend for a property rental management platform built with 
 
 ### Messaging & Real-time Communication
 - **WebSocket Support**: Real-time bidirectional communication
-- **Message System**: Persistent message storage with sender/receiver tracking
-- **Message Types**: Support for TEXT, IMAGE, FILE message types
+- **Message System**: Persistent message storage with sender tracking
+- **Message Types**: Support for TEXT message types
 - **Real-time Notifications**: Instant message delivery via WebSockets
 
 ### Dashboard & Analytics
