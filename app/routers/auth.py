@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from app.services import auth_service
 
 ALGO = settings.ALGORITHM
 SECRET = settings.SECRET_KEY
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
@@ -68,6 +70,7 @@ async def verify_email(
     Verify email using the token sent via email.
     """
     await auth_service.verify_email(db, verify_data.token)
+    logger.info("Email verified successfully")
     return {"message": "Email verified successfully"}
 
 
@@ -259,4 +262,5 @@ async def logout(
         )
 
     await auth_service.logout(db, current_user, jti, expires_at)
+    logger.info(f"User {current_user.id} logged out")
     return {"message": "Logged out successfully"}

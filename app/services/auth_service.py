@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import UTC, datetime
 from uuid import UUID
@@ -41,6 +42,7 @@ from app.utils.redis_client import redis_client
 
 ALGO = settings.ALGORITHM
 SECRET = settings.SECRET_KEY
+logger = logging.getLogger(__name__)
 
 
 async def register_user(
@@ -208,6 +210,8 @@ async def login_password(
     access_token = create_access_token(user)
     refresh_token = create_refresh_token(user)
 
+    logger.info(f"User {user.id} logged in successfully (password)")
+
     return {"access": access_token, "refresh": refresh_token}
 
 
@@ -257,6 +261,8 @@ async def login_otp_verify(
     # Issue tokens
     access_token = create_access_token(user)
     refresh_token = create_refresh_token(user)
+
+    logger.info(f"User {user.id} logged in successfully (OTP)")
 
     return {"access": access_token, "refresh": refresh_token}
 

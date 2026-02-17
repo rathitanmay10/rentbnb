@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from app.schemas.booking import (
 )
 from app.services import booking_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
 
@@ -32,7 +34,11 @@ async def create_booking(
     """
     Create a new booking
     """
-    return await booking_service.create_booking(db, current_user, booking_data)
+    result = await booking_service.create_booking(db, current_user, booking_data)
+    logger.info(
+        f"Booking created: {result['booking_id']} for property {booking_data.property_id}"
+    )
+    return result
 
 
 @router.get("/my", response_model=BookingListResponse)
@@ -102,4 +108,6 @@ async def cancel_booking(
     """
     Cancel a booking
     """
-    return await booking_service.cancel_booking(db, booking_id, current_user)
+    result = await booking_service.cancel_booking(db, booking_id, current_user)
+    logger.info(f"Booking cancelled: {booking_id} by user {current_user.id}")
+    return result

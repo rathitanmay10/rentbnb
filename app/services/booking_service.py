@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -14,6 +15,8 @@ from app.schemas.booking import BookingCreate
 from app.services import message_service, payment_service
 from app.tasks import booking_tasks, email_tasks, payment_tasks
 from app.utils.email_utils import build_booking_email
+
+logger = logging.getLogger(__name__)
 
 
 async def create_booking(
@@ -168,6 +171,7 @@ async def expire_booking(booking_id: UUID, db: AsyncSession):
         return
 
     if booking.status == BookingStatus.PENDING:
+        logger.info(f"Expiring pending booking: {booking.id}")
         await booking_crud.update_booking(
             db,
             booking.id,

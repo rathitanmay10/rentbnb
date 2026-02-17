@@ -18,6 +18,7 @@ async def db_exception_handler(request: Request, exc: IntegrityError):
     Handles UNIQUE, NOT NULL, FK, CHECK, and all other constraint errors.
     """
     message = extract_pg_error(exc)
+    logger.warning(f"Database integrity error: {message}")
 
     return JSONResponse(
         status_code=400,

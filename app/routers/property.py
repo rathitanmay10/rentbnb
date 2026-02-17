@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
@@ -24,6 +25,7 @@ from app.schemas.property import (
 from app.schemas.property_image import PropertyImageCreateResponse
 from app.services import property_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
 
@@ -33,7 +35,9 @@ async def create_property(
     user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
     db: AsyncSession = Depends(get_db),
 ):
-    return await property_service.create_property(db, user, data)
+    result = await property_service.create_property(db, user, data)
+    logger.info(f"Property created: {result.id} by user {user.id}")
+    return result
 
 
 @router.get("/own", response_model=PropertyListResponse)
@@ -105,7 +109,9 @@ async def update_property(
             status_code=403, detail="Not authorized to edit this property"
         )
 
-    return await property_crud.update_property(db, prop, data)
+    result = await property_crud.update_property(db, prop, data)
+    logger.info(f"Property updated: {property_id} by user {user.id}")
+    return result
 
 
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -115,6 +121,7 @@ async def delete_property(
     db: AsyncSession = Depends(get_db),
 ):
     await property_service.delete_property(db, user, property_id)
+    logger.info(f"Property deleted: {property_id} by user {user.id}")
     return
 
 
@@ -125,7 +132,9 @@ async def upload_image(
     user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
     db: AsyncSession = Depends(get_db),
 ):
-    return await property_service.upload_property_image(db, user, property_id, file)
+    result = await property_service.upload_property_image(db, user, property_id, file)
+    logger.info(f"Image uploaded for property {property_id} by user {user.id}")
+    return result
 
 
 @router.delete(

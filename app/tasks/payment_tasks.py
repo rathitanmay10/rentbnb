@@ -15,6 +15,7 @@ async def check_payment_status(db, self, payment_id: str):
     """Check payment status with Razorpay and update if necessary."""
 
     try:
+        logger.info(f"Checking payment status for: {payment_id}")
         await payment_service.check_payment_status(db, UUID(payment_id))
         await db.commit()
     except Exception as exc:
@@ -49,6 +50,7 @@ async def refund_payment_task(db, self, payment_id: str):
     Celery task to process refund for a payment.
     """
     try:
+        logger.info(f"Processing refund for payment: {payment_id}")
         await payment_service.process_refund(db, UUID(payment_id))
         await db.commit()
     except Exception as exc:

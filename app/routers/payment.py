@@ -75,7 +75,7 @@ async def webhook(request: Request, db: AsyncSession = Depends(get_db)):
         result = await payment_service.process_webhook(
             db, payload, body, signature, event_id
         )
-        logger.info(f"Webhook processed successfully: {result}")
+        logger.info("Webhook processed successfully")
         return result
     except Exception as e:
         logger.error(f"Webhook processing failed: {e}")
