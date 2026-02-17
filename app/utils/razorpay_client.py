@@ -43,10 +43,10 @@ class RazorpayClient:
         return await run_in_threadpool(client.payment.fetch, payment_id)
 
     @classmethod
-    async def refund_payment(cls, payment_id: str, data: dict) -> dict:
+    async def refund_payment(cls, payment_id: str, amount: int) -> dict:
         """Refund a Razorpay payment asynchronously."""
         client = cls.get_client()
-        return await run_in_threadpool(client.payment.refund, payment_id, data)
+        return await run_in_threadpool(client.payment.refund, payment_id, amount)
 
     @classmethod
     def verify_payment_signature(cls, data: dict):

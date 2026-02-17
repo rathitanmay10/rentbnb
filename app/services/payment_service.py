@@ -218,7 +218,7 @@ async def process_refund(db: AsyncSession, payment_id: UUID):
 
     try:
         await RazorpayClient.refund_payment(
-            payment.razorpay_payment_id, {"amount": int(payment.amount * 100)}
+            payment.razorpay_payment_id, amount=int(payment.amount * 100)
         )
         await payment_crud.update_payment(db, payment.id, status=PaymentStatus.REFUNDED)
     except Exception as e:

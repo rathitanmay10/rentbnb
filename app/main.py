@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config.settings import settings
+from app.core.logger import setup_logging
 from app.routers import (
     amenity,
     auth,
@@ -28,6 +29,8 @@ from app.utils.exception_handlers import (
     validation_exception_handler,
 )
 from app.utils.redis_client import redis_client
+
+setup_logging()
 
 
 @asynccontextmanager

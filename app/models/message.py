@@ -36,3 +36,5 @@ class Message(BaseWithoutSoftDelete, TenantMixin):
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="messages")
     booking: Mapped["Booking"] = relationship("Booking", back_populates="messages")
     sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id])
+
+    # TODO: Add is_read field for tracking read status

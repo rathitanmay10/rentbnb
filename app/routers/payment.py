@@ -26,8 +26,6 @@ async def payment_callback(
     This endpoint receives the payment response and redirects to status page.
     """
 
-    form_data = await request.form()
-
     query_params = dict(request.query_params)
     token = query_params.get("token", "")
     booking_id = query_params.get("booking_id", "")
@@ -67,7 +65,7 @@ async def webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     try:
         payload = await request.json()
-        logger.error(f"Webhook event type: {payload.get('event')}")
+        logger.info(f"Webhook event type: {payload.get('event')}")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON"

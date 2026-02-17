@@ -121,6 +121,8 @@ async def upload_property_image(
             await aiofiles.os.remove(file_path)
         raise
 
+    # TODO: Add image to S3
+
 
 async def delete_property_image(
     db: AsyncSession, user: User, property_id: UUID, image_id: UUID
