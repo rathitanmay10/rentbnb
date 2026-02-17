@@ -9,7 +9,7 @@ uploads/
 .DS_Store
 app/.DS_Store
 .vscode/
-ruff.toml
+
 # Distribution / packaging
 .Python
 build/
