@@ -9,7 +9,7 @@ from app.constants.messages import NOT_FOUND
 from app.crud import tenant_crud
 from app.database.init_db import get_db
 from app.dependencies.user import get_current_user
-from app.enums import TenantStatus
+from app.enums import TenantStatus, UserRole
 from app.models import Property, Tenant, User
 
 
@@ -139,8 +139,11 @@ async def get_tenant_user(current_user: User = Depends(get_current_user)) -> Use
     """
     Get current user's tenant and validate it's active.
     """
-    if not current_user.tenant_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    if not current_user.tenant_id and current_user.role == UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super Admin has no access to tenant specific features",
+        )
     tenant = await get_current_tenant(current_user)
     if not tenant:
         raise HTTPException(

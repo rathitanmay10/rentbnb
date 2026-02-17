@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.init_db import get_db
@@ -11,6 +11,13 @@ from app.schemas.dashboard import PlatformDashboardResponse, TenantDashboardResp
 from app.services import dashboard_service
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+
+
+def validate_dates(from_date: date | None, to_date: date | None) -> None:
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(
+            status_code=400, detail="Start date cannot be after end date"
+        )
 
 
 @router.get("/tenant", response_model=TenantDashboardResponse)
@@ -34,6 +41,7 @@ async def get_tenant_dashboard(
     - active_guests: Distinct guests with bookings in the date range
     """
 
+    validate_dates(from_date, to_date)
     return await dashboard_service.get_tenant_dashboard(
         db, current_user.tenant_id, from_date, to_date
     )
@@ -58,4 +66,5 @@ async def get_platform_dashboard(
     - total_revenue: Total platform revenue from paid payments in date range
     - bookings_in_range: Bookings created within the date range
     """
+    validate_dates(from_date, to_date)
     return await dashboard_service.get_platform_dashboard(db, from_date, to_date)
