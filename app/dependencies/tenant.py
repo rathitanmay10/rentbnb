@@ -59,7 +59,6 @@ def verify_tenant_access(current_user: User, target_user: User) -> None:
     Verify if current_user can access the target_user.
     Raises 404 (Not Found) if access is denied to avoid leaking existence.
     """
-    from app.enums import UserRole  # Avoid circular import if possible
 
     if current_user.id == target_user.id:
         return
@@ -82,7 +81,6 @@ def verify_tenant_admin_management(current_user: User, target_user: User) -> Non
     """
     Verify if current_user (Tenant Admin) can manage target_user.
     """
-    from app.enums import UserRole
 
     verify_tenant_access(current_user, target_user)
 
