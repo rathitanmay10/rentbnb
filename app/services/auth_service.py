@@ -21,6 +21,7 @@ from app.constants.messages import (
 from app.crud import blacklist_crud, user_crud
 from app.enums import TenantStatus, UserRole
 from app.models import User
+from app.schemas import UserCreate
 from app.schemas.auth import (
     ChangePasswordSchema,
     EmailOnlySchema,
@@ -30,7 +31,6 @@ from app.schemas.auth import (
     ResetPasswordSchema,
     VerifyLoginSchema,
 )
-from app.schemas import UserCreate
 from app.services import user_service
 from app.services.email_service import email_service
 from app.utils.email_utils import build_reset_password_email, build_verification_email
@@ -62,7 +62,6 @@ async def register_user(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Verification email already sent. Please wait.",
         )
-
 
     user_data = UserCreate(
         username=register_data.username,
