@@ -5,6 +5,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.constants.payment import DEFAULT_CURRENCY
+from app.constants.razorpay import RAZORPAY_STATUS_CAPTURED
 from app.crud import booking_crud, payment_crud, property_crud, user_crud, webhook_crud
 from app.enums import BookingStatus, PaymentStatus, WebhookEvents
 from app.services import message_service
@@ -16,7 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 async def create_razorpay_order(
-    db: AsyncSession, booking_id: UUID, amount_paise: int, currency: str = "INR"
+    db: AsyncSession,
+    booking_id: UUID,
+    amount_paise: int,
+    currency: str = DEFAULT_CURRENCY,
 ) -> dict:
     """Create Razorpay order."""
 
@@ -253,7 +258,7 @@ async def check_payment_status(db: AsyncSession, payment_id: UUID):
         items = response.get("items", [])
 
         for item in items:
-            if item["status"] == "captured":
+            if item["status"] == RAZORPAY_STATUS_CAPTURED:
                 amount_paid = item["amount"] / 100
                 if amount_paid == float(payment.amount):
                     await payment_crud.update_payment(

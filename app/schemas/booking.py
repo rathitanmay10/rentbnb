@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.constants.booking import MAX_ADVANCE_BOOKING_DAYS, MAX_BOOKING_DURATION_DAYS
 from app.enums import BookingStatus
 from app.schemas.payment import PaymentResponse
 
@@ -31,15 +32,21 @@ class BookingCreate(BookingBase):
 
     @model_validator(mode="after")
     def validate_booking_constraints(self):
-        # Max 30 days duration
+        # Max booking duration
         duration = (self.check_out - self.check_in).days
-        if duration > 30:
-            raise ValueError("Booking duration cannot exceed 30 days")
+        if duration > MAX_BOOKING_DURATION_DAYS:
+            raise ValueError(
+                f"Booking duration cannot exceed {MAX_BOOKING_DURATION_DAYS} days"
+            )
 
-        # Max 3 months advance booking
-        max_advance_date = datetime.now(UTC).date() + timedelta(days=90)
+        # Max advance booking
+        max_advance_date = datetime.now(UTC).date() + timedelta(
+            days=MAX_ADVANCE_BOOKING_DAYS
+        )
         if self.check_in > max_advance_date:
-            raise ValueError("Bookings cannot be made more than 3 months in advance")
+            raise ValueError(
+                f"Bookings cannot be made more than {MAX_ADVANCE_BOOKING_DAYS} days in advance"
+            )
 
         return self
 

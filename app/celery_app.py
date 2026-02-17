@@ -5,6 +5,11 @@ from celery.schedules import crontab
 from celery.signals import setup_logging
 
 from app.config.settings import settings
+from app.constants.celery_schedule import (
+    PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
+    TOKEN_CLEANUP_CRON_HOUR,
+    TOKEN_CLEANUP_CRON_MINUTE,
+)
 from app.core.logger import setup_logging as app_setup_logging
 
 
@@ -44,11 +49,14 @@ celery_app.conf.update(
     beat_schedule={
         "reconcile-pending-payments": {
             "task": "app.tasks.payment_tasks.reconcile_pending_payments",
-            "schedule": 120.0,
+            "schedule": PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
         },
         "cleanup-expired-tokens": {
             "task": "app.tasks.auth_tasks.cleanup_tokens",
-            "schedule": crontab(minute=0, hour="*/6"),
+            "schedule": crontab(
+                minute=TOKEN_CLEANUP_CRON_MINUTE,
+                hour=TOKEN_CLEANUP_CRON_HOUR,
+            ),
         },
     },
 )

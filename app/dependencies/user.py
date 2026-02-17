@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
+from app.constants.jwt import TOKEN_TYPE_ACCESS
 from app.database.init_db import get_db
 from app.models import User
 
@@ -48,7 +49,7 @@ async def get_current_user(
             detail="Invalid or expired token",
         )
 
-    if payload.get("type") != "access":
+    if payload.get("type") != TOKEN_TYPE_ACCESS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Access token required",

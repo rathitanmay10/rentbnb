@@ -60,10 +60,13 @@ async def delete_property(db: AsyncSession, user: User, property_id: UUID):
     """Delete a property."""
     prop = await property_crud.get_property(db, property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
+        )
     if not can_edit_property(user, prop):
         raise HTTPException(
-            status_code=403, detail="Not authorized to delete this property"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this property",
         )
     booking = await booking_crud.get_bookings(
         db,
@@ -74,7 +77,8 @@ async def delete_property(db: AsyncSession, user: User, property_id: UUID):
     )
     if booking:
         raise HTTPException(
-            status_code=400, detail="Property has future bookings, cannot delete"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Property has future bookings, cannot delete",
         )
     await property_crud.delete_property(db, prop)
 

@@ -13,11 +13,19 @@ from app.constants.auth_ttl import (
     RESEND_WAIT_SECONDS,
     RESET_PASSWORD_TTL,
 )
+from app.constants.jwt import TOKEN_TYPE_REFRESH
 from app.constants.messages import (
     AUTH_INACTIVE,
     AUTH_INVALID_CREDENTIALS,
     AUTH_UNVERIFIED,
     OTP_SENT,
+)
+from app.constants.redis_keys import (
+    REDIS_RESET_EMAIL,
+    REDIS_RESET_TOKEN,
+    REDIS_VERIFICATION_EMAIL,
+    REDIS_VERIFICATION_TOKEN,
+    get_tenant_prefix,
 )
 from app.crud import blacklist_crud, user_crud
 from app.enums import TenantStatus, UserRole
@@ -55,11 +63,11 @@ async def register_user(
     Register a new user (guest by default) and send verification email.
     """
     # Scope redis key to tenant
-    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
-    if (
-        await redis_client.get(f"{tenant_prefix}verification:{register_data.email}")
-        is not None
-    ):
+    tenant_prefix = get_tenant_prefix(tenant_id)
+    verification_key = (
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=register_data.email)}"
+    )
+    if await redis_client.get(verification_key) is not None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Verification email already sent. Please wait.",
@@ -80,10 +88,14 @@ async def register_user(
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
-        f"{tenant_prefix}verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=user.email)}",
+        str(token),
+        expire=EMAIL_VERIFY_TTL,
     )
     await redis_client.set(
-        f"verification:{token}", str(user.id), expire=EMAIL_VERIFY_TTL
+        REDIS_VERIFICATION_TOKEN.format(token=token),
+        str(user.id),
+        expire=EMAIL_VERIFY_TTL,
     )
 
     email, subject, body = build_verification_email(token, user.email)
@@ -102,8 +114,11 @@ async def resend_verification_email(
     background_tasks: BackgroundTasks,
     tenant_id: UUID | None,
 ):
-    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
-    ttl = await redis_client.ttl(f"{tenant_prefix}verification:{data.email}")
+    tenant_prefix = get_tenant_prefix(tenant_id)
+    verification_key = (
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=data.email)}"
+    )
+    ttl = await redis_client.ttl(verification_key)
     if ttl > 0:
         elapsed = EMAIL_VERIFY_TTL - ttl
         if elapsed < RESEND_WAIT_SECONDS:
@@ -121,10 +136,14 @@ async def resend_verification_email(
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
-        f"{tenant_prefix}verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=user.email)}",
+        str(token),
+        expire=EMAIL_VERIFY_TTL,
     )
     await redis_client.set(
-        f"verification:{token}", str(user.id), expire=EMAIL_VERIFY_TTL
+        REDIS_VERIFICATION_TOKEN.format(token=token),
+        str(user.id),
+        expire=EMAIL_VERIFY_TTL,
     )
 
     email, subject, body = build_verification_email(token, user.email)
@@ -138,7 +157,7 @@ async def resend_verification_email(
 
 async def verify_email(db: AsyncSession, token: str) -> bool:
     """Verify user email using token."""
-    user_id = await redis_client.get(f"verification:{token}")
+    user_id = await redis_client.get(REDIS_VERIFICATION_TOKEN.format(token=token))
 
     if not user_id:
         raise HTTPException(
@@ -160,14 +179,15 @@ async def verify_email(db: AsyncSession, token: str) -> bool:
     await db.commit()
 
     # Delete token
-    # Delete token
-    await redis_client.delete(f"verification:{token}")
+    await redis_client.delete(REDIS_VERIFICATION_TOKEN.format(token=token))
 
     # We need to delete the email rate limit key.
     # Since we don't have tenant_id here easily without fetching user (which we did),
     # we can construct the prefix.
-    tenant_prefix = f"tenant:{user.tenant_id}:" if user.tenant_id else "tenant:none:"
-    await redis_client.delete(f"{tenant_prefix}verification:{user.email}")
+    tenant_prefix = get_tenant_prefix(user.tenant_id)
+    await redis_client.delete(
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=user.email)}"
+    )
 
     return True
 
@@ -274,8 +294,9 @@ async def forgot_password(
     tenant_id: UUID | None,
 ) -> dict:
     """Generate password reset token and send email."""
-    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
-    ttl = await redis_client.ttl(f"{tenant_prefix}reset:{data.email}")
+    tenant_prefix = get_tenant_prefix(tenant_id)
+    reset_email_key = f"{tenant_prefix}{REDIS_RESET_EMAIL.format(email=data.email)}"
+    ttl = await redis_client.ttl(reset_email_key)
     if ttl > 0:
         elapsed = RESET_PASSWORD_TTL - ttl
         if elapsed < RESEND_WAIT_SECONDS:
@@ -290,10 +311,14 @@ async def forgot_password(
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
-        f"{tenant_prefix}reset:{data.email}", str(user.id), expire=RESET_PASSWORD_TTL
+        f"{tenant_prefix}{REDIS_RESET_EMAIL.format(email=data.email)}",
+        str(user.id),
+        expire=RESET_PASSWORD_TTL,
     )
     await redis_client.set(
-        f"{tenant_prefix}reset:{token}", str(user.id), expire=RESET_PASSWORD_TTL
+        f"{tenant_prefix}{REDIS_RESET_TOKEN.format(token=token)}",
+        str(user.id),
+        expire=RESET_PASSWORD_TTL,
     )
 
     email, subject, body = build_reset_password_email(token, user.email)
@@ -315,7 +340,7 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
 
-    if payload.get("type") != "refresh":
+    if payload.get("type") != TOKEN_TYPE_REFRESH:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type"
         )
@@ -393,8 +418,9 @@ async def reset_password(
     db: AsyncSession, data: ResetPasswordSchema, tenant_id: UUID | None
 ) -> dict:
     """Reset password using token."""
-    tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
-    user_id = await redis_client.get(f"{tenant_prefix}reset:{data.token}")
+    tenant_prefix = get_tenant_prefix(tenant_id)
+    reset_token_key = f"{tenant_prefix}{REDIS_RESET_TOKEN.format(token=data.token)}"
+    user_id = await redis_client.get(reset_token_key)
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -403,7 +429,9 @@ async def reset_password(
 
     user = await user_crud.get_user(db, UUID(user_id))
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     # Update password
     new_hashed = hash_password(data.new_password)
@@ -414,7 +442,11 @@ async def reset_password(
     await db.commit()
 
     # Delete token
-    await redis_client.delete(f"{tenant_prefix}reset:{data.token}")
-    await redis_client.delete(f"{tenant_prefix}reset:{user.email}")
+    await redis_client.delete(
+        f"{tenant_prefix}{REDIS_RESET_TOKEN.format(token=data.token)}"
+    )
+    await redis_client.delete(
+        f"{tenant_prefix}{REDIS_RESET_EMAIL.format(email=user.email)}"
+    )
 
     return {"message": "Password reset successful"}

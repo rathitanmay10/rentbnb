@@ -5,6 +5,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
+from app.constants.jwt import TOKEN_TYPE_ACCESS
 from app.crud import booking_crud
 from app.database.init_db import get_db
 from app.enums import TenantStatus, UserRole
@@ -41,7 +42,7 @@ async def verify_websocket_token(token: str, db: AsyncSession) -> User | None:
     except JWTError:
         return None
 
-    if payload.get("type") != "access":
+    if payload.get("type") != TOKEN_TYPE_ACCESS:
         return None
 
     user_id = payload.get("sub")

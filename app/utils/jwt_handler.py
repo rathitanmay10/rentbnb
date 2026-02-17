@@ -4,6 +4,7 @@ from uuid import uuid4
 from jose import jwt
 
 from app.config import settings
+from app.constants.jwt import TOKEN_TYPE_ACCESS, TOKEN_TYPE_REFRESH
 
 SECRET = settings.SECRET_KEY
 ALGO = settings.ALGORITHM
@@ -17,7 +18,7 @@ def create_access_token(user):
         "sub": str(user.id),
         "jti": str(uuid4()),
         "token_version": user.token_version,
-        "type": "access",
+        "type": TOKEN_TYPE_ACCESS,
         "iat": now,
         "exp": now + timedelta(minutes=ACCESS_EXPIRE_MIN),
     }
@@ -30,7 +31,7 @@ def create_refresh_token(user):
         "sub": str(user.id),
         "jti": str(uuid4()),
         "token_version": user.token_version,
-        "type": "refresh",
+        "type": TOKEN_TYPE_REFRESH,
         "iat": now,
         "exp": now + timedelta(days=REFRESH_EXPIRE_DAYS),
     }

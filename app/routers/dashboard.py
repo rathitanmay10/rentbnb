@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.init_db import get_db
@@ -16,7 +16,8 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 def validate_dates(from_date: date | None, to_date: date | None) -> None:
     if from_date and to_date and from_date > to_date:
         raise HTTPException(
-            status_code=400, detail="Start date cannot be after end date"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Start date cannot be after end date",
         )
 
 

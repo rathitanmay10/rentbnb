@@ -38,7 +38,7 @@ async def payment_callback(
         f"&payment_id={payment_id}"
     )
 
-    return RedirectResponse(url=redirect_url, status_code=303)
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/webhook/")

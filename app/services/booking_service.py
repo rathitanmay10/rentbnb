@@ -7,7 +7,11 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
-from app.constants.payment import COMMISSION_PERCENTAGE
+from app.constants.booking import (
+    BOOKING_EXPIRATION_MINUTES,
+    CANCELLATION_REFUND_THRESHOLD_DAYS,
+)
+from app.constants.payment import COMMISSION_PERCENTAGE, DEFAULT_CURRENCY
 from app.crud import booking_crud, payment_crud, property_crud, user_crud
 from app.enums import BookingStatus, PaymentStatus, UserRole
 from app.models import User
@@ -31,9 +35,13 @@ async def create_booking(
         db, data.property_id, user.tenant_id
     )
     if not property_obj:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
+        )
     if not property_obj.is_active:
-        raise HTTPException(status_code=403, detail="Property is not active")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Property is not active"
+        )
     # Check availability manually
     # The lock ensures no one else is booking this property right now.
     conflict = await booking_crud.check_availability(
@@ -63,7 +71,8 @@ async def create_booking(
             "base_amount": base_amount,
             "commission_amount": commission_amount,
             "total_amount": total_amount,
-            "expires_at": datetime.now(UTC) + timedelta(minutes=10),
+            "expires_at": datetime.now(UTC)
+            + timedelta(minutes=BOOKING_EXPIRATION_MINUTES),
         },
     )
     await db.commit()
@@ -86,7 +95,7 @@ async def create_booking(
             "tenant_id": property_obj.tenant_id,
             "status": PaymentStatus.PENDING,
             "amount": total_amount,
-            "currency": "INR",
+            "currency": DEFAULT_CURRENCY,
             "razorpay_order_id": order["id"],
         },
     )
@@ -133,7 +142,7 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
 
     if booking.status == BookingStatus.CONFIRMED:
         days_to_checkin = (booking.check_in - datetime.now(UTC).date()).days
-        if days_to_checkin >= 2:
+        if days_to_checkin >= CANCELLATION_REFUND_THRESHOLD_DAYS:
             payments = await payment_crud.get_payments_by_booking(db, booking.id)
             for payment in payments:
                 if payment.status == PaymentStatus.PAID:

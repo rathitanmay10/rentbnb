@@ -13,6 +13,12 @@ from app.constants.messages import (
     OTP_RATE_LIMITED,
     OTP_SENT,
 )
+from app.constants.redis_keys import (
+    REDIS_OTP,
+    REDIS_OTP_ATTEMPTS,
+    REDIS_OTP_COOLDOWN,
+    get_tenant_prefix,
+)
 from app.services.email_service import email_service
 from app.utils.redis_client import redis_client
 
@@ -26,11 +32,11 @@ class OTPHandler:
         Generates and sends a secure OTP to the given email.
         Enforces cooldown.
         """
-        tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+        tenant_prefix = get_tenant_prefix(tenant_id)
 
-        cooldown_key = f"{tenant_prefix}otp_cooldown:{email}"
-        otp_key = f"{tenant_prefix}otp:{email}"
-        attempt_key = f"{tenant_prefix}otp_attempts:{email}"
+        cooldown_key = f"{tenant_prefix}{REDIS_OTP_COOLDOWN.format(email=email)}"
+        otp_key = f"{tenant_prefix}{REDIS_OTP.format(email=email)}"
+        attempt_key = f"{tenant_prefix}{REDIS_OTP_ATTEMPTS.format(email=email)}"
 
         # Enforce cooldown
         if await redis_client.get(cooldown_key):
@@ -64,11 +70,11 @@ class OTPHandler:
         Enforces max attempts.
         Returns True if valid, otherwise raises HTTPException.
         """
-        tenant_prefix = f"tenant:{tenant_id}:" if tenant_id else "tenant:none:"
+        tenant_prefix = get_tenant_prefix(tenant_id)
 
-        otp_key = f"{tenant_prefix}otp:{email}"
-        attempt_key = f"{tenant_prefix}otp_attempts:{email}"
-        cooldown_key = f"{tenant_prefix}otp_cooldown:{email}"
+        otp_key = f"{tenant_prefix}{REDIS_OTP.format(email=email)}"
+        attempt_key = f"{tenant_prefix}{REDIS_OTP_ATTEMPTS.format(email=email)}"
+        cooldown_key = f"{tenant_prefix}{REDIS_OTP_COOLDOWN.format(email=email)}"
 
         stored_otp = await redis_client.get(otp_key)
         # OTP expired or not found

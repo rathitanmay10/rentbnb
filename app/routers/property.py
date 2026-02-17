@@ -98,7 +98,9 @@ async def get_property(
 ):
     prop = await property_crud.get_property(db, property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
+        )
     verify_tenant_property_access(user, prop)
     return prop
 
@@ -112,11 +114,14 @@ async def update_property(
 ):
     prop = await property_crud.get_property(db, property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
+        )
     verify_tenant_property_access(user, prop)
     if not property_service.can_edit_property(user, prop):
         raise HTTPException(
-            status_code=403, detail="Not authorized to edit this property"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to edit this property",
         )
 
     result = await property_crud.update_property(db, prop, data)
@@ -172,7 +177,9 @@ async def check_property_availability(
 ):
     prop = await property_crud.get_property(db, property_id)
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
+        )
     verify_tenant_property_access(user, prop)
     booked = await booking_crud.check_property_availability(
         db, prop.id, check_in, check_out

@@ -6,6 +6,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.constants.payment import DEFAULT_CURRENCY
 from app.enums import PaymentStatus
 from app.models.base import BaseWithoutSoftDelete
 from app.models.mixins import TenantMixin
@@ -39,7 +40,9 @@ class Payment(BaseWithoutSoftDelete, TenantMixin):
     )
 
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    currency: Mapped[str] = mapped_column(String(10), default="INR", nullable=False)
+    currency: Mapped[str] = mapped_column(
+        String(10), default=DEFAULT_CURRENCY, nullable=False
+    )
 
     razorpay_order_id: Mapped[str] = mapped_column(
         String(255), nullable=False, unique=True

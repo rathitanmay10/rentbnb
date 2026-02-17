@@ -5,6 +5,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.auth_ttl import EMAIL_VERIFY_TTL
+from app.constants.redis_keys import (
+    REDIS_VERIFICATION_EMAIL,
+    REDIS_VERIFICATION_TOKEN,
+    get_tenant_prefix,
+)
 from app.database.init_db import get_db
 from app.dependencies import (
     get_current_user,
@@ -69,11 +74,11 @@ async def create_user(
             )
         tenant_id = current_user.tenant_id
         user_data.tenant_id = tenant_id
-    tenant_prefix = f"tenant:{user_data.tenant_id}:"
-    if (
-        await redis_client.get(f"{tenant_prefix}verification:{user_data.email}")
-        is not None
-    ):
+    tenant_prefix = get_tenant_prefix(user_data.tenant_id)
+    verification_key = (
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=user_data.email)}"
+    )
+    if await redis_client.get(verification_key) is not None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Verification email already sent. Please wait.",
@@ -86,10 +91,14 @@ async def create_user(
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
-        f"{tenant_prefix}verification:{user.email}", str(token), expire=EMAIL_VERIFY_TTL
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=user.email)}",
+        str(token),
+        expire=EMAIL_VERIFY_TTL,
     )
     await redis_client.set(
-        f"verification:{token}", str(user.id), expire=EMAIL_VERIFY_TTL
+        REDIS_VERIFICATION_TOKEN.format(token=token),
+        str(user.id),
+        expire=EMAIL_VERIFY_TTL,
     )
 
     email, subject, body = build_verification_email(token, user.email)
