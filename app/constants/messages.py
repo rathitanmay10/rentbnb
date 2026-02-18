@@ -4,7 +4,7 @@ AUTH_USER_NOT_FOUND = "User not found"
 AUTH_INACTIVE = "Account is inactive"
 AUTH_UNVERIFIED = "Email not verified"
 OTP_INVALID = "Invalid or expired OTP"
-OTP_RATE_LIMITED = "Too many attempts. Please try again later."
+OTP_RATE_LIMITED = "Too many attempts. OTP expired, please try again."
 OTP_COOLDOWN_MSG = "Please wait before requesting another OTP"
 
 # Core Errors
