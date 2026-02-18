@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.constants.property import MAX_SIZE
 from app.crud import booking_crud, property_crud, user_crud
 from app.enums import UserRole
+from app.models.property import Property
 from app.models.user import User
-from app.schemas.property import PropertyCreate
+from app.schemas.property import PropertyCreate, PropertyUpdate
 
 UPLOAD_DIR = "uploads"
 
@@ -81,6 +82,44 @@ async def delete_property(db: AsyncSession, user: User, property_id: UUID):
             detail="Property has future bookings, cannot delete",
         )
     await property_crud.delete_property(db, prop)
+
+
+async def update_property(
+    db: AsyncSession, user: User, property_id: UUID, data: PropertyUpdate
+) -> Property:
+    """Update a property."""
+    prop = await property_crud.get_property(db, property_id)
+    if not prop:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
+        )
+
+    if not can_edit_property(user, prop):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to edit this property",
+        )
+
+    # Check if managed_by is being updated
+    if data.managed_by:
+        if user.role != UserRole.TENANT_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Tenant Admin can change the property manager",
+            )
+
+        # Verify new manager exists and belongs to the same tenant
+        new_manager = await user_crud.get_user(db, data.managed_by)
+        if not new_manager:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found"
+            )
+        if new_manager.tenant_id != user.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found"
+            )
+
+    return await property_crud.update_property(db, prop, data)
 
 
 async def upload_property_image(

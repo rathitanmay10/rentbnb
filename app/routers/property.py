@@ -112,19 +112,7 @@ async def update_property(
     user: User = Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER)),
     db: AsyncSession = Depends(get_db),
 ):
-    prop = await property_crud.get_property(db, property_id)
-    if not prop:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
-        )
-    verify_tenant_property_access(user, prop)
-    if not property_service.can_edit_property(user, prop):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to edit this property",
-        )
-
-    result = await property_crud.update_property(db, prop, data)
+    result = await property_service.update_property(db, user, property_id, data)
     logger.info(f"Property updated: {property_id} by user {user.id}")
     return result
 

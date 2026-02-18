@@ -47,14 +47,15 @@ class PropertyUpdate(BaseModel):
     state: str | None = Field(None, max_length=100)
     country: str | None = Field(None, max_length=100)
     zipcode: str | None = Field(None, max_length=20)
-    latitude: Decimal | None = Field(None, ge=-90, le=90, decimal_places=6)
-    longitude: Decimal | None = Field(None, ge=-180, le=180, decimal_places=6)
+    latitude: Decimal | None = Field(None, ge=-90, le=90)
+    longitude: Decimal | None = Field(None, ge=-180, le=180)
     category: PropertyCategory | None = None
     bedrooms: int | None = Field(None, ge=1)
     max_guests: int | None = Field(None, ge=1)
     price_per_night: Decimal | None = Field(None, gt=0, le=999999.99)
     is_active: bool | None = None
     amenities: list[uuid.UUID] | None = None
+    managed_by: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def validate_max_guests(self):
