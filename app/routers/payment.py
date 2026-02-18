@@ -19,7 +19,6 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 @router.post("/callback/")
 async def payment_callback(
     request: Request,
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Handle Razorpay payment callback (redirect after payment).
