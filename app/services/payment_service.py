@@ -64,16 +64,15 @@ async def process_webhook(
 ):
     """Process Razorpay webhook."""
     if not settings.RAZORPAY_WEBHOOK_SECRET:
+        logger.error("Webhook secret not configured")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Webhook secret not configured",
         )
 
     try:
-        client = RazorpayClient.get_client()
-        body_str = body.decode("utf-8")
-        client.utility.verify_webhook_signature(
-            body_str, signature, settings.RAZORPAY_WEBHOOK_SECRET
+        RazorpayClient.verify_webhook_signature(
+            body, signature, settings.RAZORPAY_WEBHOOK_SECRET
         )
     except Exception as e:
         logger.error(f"Signature verification failed: {type(e).__name__}: {e}")

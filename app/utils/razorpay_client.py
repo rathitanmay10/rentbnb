@@ -70,10 +70,6 @@ class RazorpayClient:
     ):
         """Verify webhook signature."""
         client = cls.get_client()
-        # Razorpay expects the body as it was received (bytes or string)
-        # If it's bytes, decode it to string if the library expects string,
-        # but typically for signature verification, the exact raw body is needed.
-        # The razorpay python client's utility.verify_webhook_signature expects body as string.
         if isinstance(body, bytes):
             body = body.decode("utf-8")
 
