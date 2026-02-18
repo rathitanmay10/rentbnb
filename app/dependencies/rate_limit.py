@@ -1,6 +1,10 @@
+import logging
+
 from fastapi import HTTPException, Request, status
 
 from app.utils.redis_client import redis_client
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
@@ -29,7 +33,7 @@ class RateLimiter:
             ttl = await redis.ttl(key)
             # If ttl is -1 (no expiry) or -2 (key doesn't exist), fallback to window size
             retry_after = ttl if ttl and ttl > 0 else self.seconds
-
+            logger.warning(f"Too Many Requests from {client_ip} for {request.url.path}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"Too Many Requests, Retry-After: {retry_after}",
