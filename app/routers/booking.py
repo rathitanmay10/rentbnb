@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import booking_crud
 from app.database.init_db import get_db
+from app.dependencies.permissions import require_roles
 from app.dependencies.tenant import get_tenant_user
 from app.enums import BookingStatus, UserRole
 from app.models import User
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/bookings", tags=["Bookings"])
 )
 async def create_booking(
     booking_data: BookingCreate,
-    current_user: User = Depends(get_tenant_user),
+    current_user: User = Depends(require_roles(UserRole.GUEST)),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -60,6 +61,9 @@ async def list_my_bookings(
         skip=skip,
         limit=limit,
         guest_id=current_user.id if current_user.role == UserRole.GUEST else None,
+        property_manager_id=current_user.id
+        if current_user.role == UserRole.MANAGER
+        else None,
         tenant_id=current_user.tenant_id,
         status=status,
         property_id=property_id,
@@ -69,6 +73,9 @@ async def list_my_bookings(
     total = await booking_crud.get_bookings_count(
         db,
         guest_id=current_user.id if current_user.role == UserRole.GUEST else None,
+        property_manager_id=current_user.id
+        if current_user.role == UserRole.MANAGER
+        else None,
         tenant_id=current_user.tenant_id,
         status=status,
         property_id=property_id,

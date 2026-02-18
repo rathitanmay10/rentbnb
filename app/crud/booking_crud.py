@@ -19,6 +19,7 @@ async def get_bookings(
     skip: int = 0,
     limit: int = 10,
     guest_id: UUID | None = None,
+    property_manager_id: UUID | None = None,
     tenant_id: UUID | None = None,
     property_id: UUID | None = None,
     status: BookingStatus | None = None,
@@ -31,6 +32,8 @@ async def get_bookings(
 
     if guest_id:
         query = query.where(Booking.guest_id == guest_id)
+    if property_manager_id:
+        query = query.where(Booking.property_manager_id == property_manager_id)
     if property_id:
         query = query.where(Booking.property_id == property_id)
     if status:
@@ -52,6 +55,7 @@ async def get_bookings(
 async def get_bookings_count(
     db: AsyncSession,
     guest_id: UUID | None = None,
+    property_manager_id: UUID | None = None,
     tenant_id: UUID | None = None,
     property_id: UUID | None = None,
     status: BookingStatus | None = None,
@@ -64,6 +68,8 @@ async def get_bookings_count(
 
     if guest_id:
         query = query.where(Booking.guest_id == guest_id)
+    if property_manager_id:
+        query = query.where(Booking.property_manager_id == property_manager_id)
     if property_id:
         query = query.where(Booking.property_id == property_id)
     if status:
