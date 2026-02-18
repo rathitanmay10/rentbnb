@@ -4,7 +4,7 @@ from app.utils.validators import validate_password, validate_username
 
 
 class RegisterSchema(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(..., max_length=255)
     username: str
     password: str
 
@@ -24,16 +24,16 @@ class VerifyEmailSchema(BaseModel):
 
 
 class EmailOnlySchema(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(..., max_length=255)
 
 
 class LoginSchema(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(..., max_length=255)
     password: str
 
 
 class VerifyLoginSchema(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(..., max_length=255)
     otp: str = Field(..., min_length=6, max_length=6, description="6-digit OTP")
 
 
@@ -63,7 +63,7 @@ class ChangePasswordSchema(BaseModel):
 
 
 class ForgotPasswordSchema(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(..., max_length=255)
 
 
 class ResetPasswordSchema(BaseModel):

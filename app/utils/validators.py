@@ -84,12 +84,15 @@ def validate_first_name(v: str | None) -> str | None:
     Rules:
     - Stripped of whitespace
     - Cannot be empty if provided
+    - Maximum 150 characters
     """
     if v is None:
         return None
     v = v.strip()
     if not v:
         raise ValueError("First name cannot be empty")
+    if len(v) > 150:
+        raise ValueError("First name must be at most 150 characters long")
     return v
 
 
@@ -99,7 +102,13 @@ def validate_last_name(v: str | None) -> str | None:
 
     Rules:
     - Stripped of whitespace
+    - Maximum 150 characters
     """
     if v is None:
         return None
-    return v.strip()
+    v = v.strip()
+    if not v:
+        return None
+    if len(v) > 150:
+        raise ValueError("Last name must be at most 150 characters long")
+    return v
