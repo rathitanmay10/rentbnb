@@ -93,8 +93,14 @@ async def delete_user(db: AsyncSession, target_user: User) -> bool:
     """Soft delete a user."""
     if target_user.role == UserRole.SUPER_ADMIN:
         raise ValueError("Super admin cannot be deleted")
-    if target_user.role in [UserRole.TENANT_ADMIN, UserRole.MANAGER]:
-        booking = await booking_crud.get_tenant_future_bookings(db, target_user.id)
+    if target_user.role == UserRole.MANAGER:
+        booking = await booking_crud.get_manager_future_bookings(db, target_user.id)
+        if booking:
+            raise ValueError("User has future bookings, cannot delete")
+    if target_user.role == UserRole.TENANT_ADMIN:
+        booking = await booking_crud.get_future_bookings_by_tenant(
+            db, target_user.tenant_id
+        )
         if booking:
             raise ValueError("User has future bookings, cannot delete")
     if target_user.role == UserRole.GUEST:

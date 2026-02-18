@@ -162,10 +162,11 @@ async def get_future_bookings_by_tenant(
     return list(result.scalars().all())
 
 
-async def get_tenant_future_bookings(db: AsyncSession, user_id: UUID) -> list[Booking]:
+async def get_manager_future_bookings(db: AsyncSession, user_id: UUID) -> list[Booking]:
     """Get all bookings for a tenant."""
     query = select(Booking).where(
-        Booking.manager_id == user_id, Booking.check_in > datetime.now(UTC).date()
+        Booking.property_manager_id == user_id,
+        Booking.check_in > datetime.now(UTC).date(),
     )
     result = await db.execute(query)
     return list(result.scalars().all())
