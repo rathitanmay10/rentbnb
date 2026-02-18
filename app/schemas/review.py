@@ -43,6 +43,7 @@ class ReviewUpdate(BaseModel):
 class ReviewResponse(ReviewBase):
     id: UUID
     property_id: UUID
+    booking_id: UUID
     guest_id: UUID
     created_at: datetime
     updated_at: datetime
@@ -60,6 +61,7 @@ class ReviewListResponse(BaseModel):
 class PropertyReviewResponse(ReviewBase):
     id: UUID
     guest_id: UUID
+    booking_id: UUID
     created_at: datetime
     updated_at: datetime
 
