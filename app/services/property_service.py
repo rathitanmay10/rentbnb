@@ -8,7 +8,7 @@ import aiofiles.os
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.constants.property import MAX_SIZE
+from app.constants.property import MAX_IMAGE_SIZE
 from app.crud import booking_crud, property_crud, user_crud
 from app.enums import UserRole
 from app.models.property import Property
@@ -160,7 +160,7 @@ async def upload_property_image(
         async with aiofiles.open(file_path, "wb") as buffer:
             while content := await file.read(64 * 1024):
                 size += len(content)
-                if size > MAX_SIZE:
+                if size > MAX_IMAGE_SIZE:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="File size exceeds limit",
