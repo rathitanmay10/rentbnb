@@ -25,7 +25,8 @@ ignore = [
     "B008",   # Depends() false positive
     "FAST002",
     "FAST003",
-    "B904"
+    "B904",
+    "S101"
 ]
 
 [lint.pydocstyle]
