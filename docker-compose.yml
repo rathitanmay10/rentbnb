@@ -1,0 +1,97 @@
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: rentbnb_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
+      POSTGRES_DB: ${DB_NAME:-rentbnb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Drop a .sql dump here and it will be loaded on first run (container init only)
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5433:5432" # expose on 5433 to avoid clashing with your local Postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-rentbnb}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: rentbnb_redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379" # expose on 6380 to avoid clashing with your local Redis
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI app ──────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tanmayrathi/rentbnb:latest
+    container_name: rentbnb_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    volumes:
+      - ./static:/app/static
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  # ── Celery worker ────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rentbnb_worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    volumes:
+      - ./logs:/app/logs
+    command: celery -A app.celery_app.celery_app worker --loglevel=info
+
+  # ── Celery beat ──────────────────────────────────────────────────────────────
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rentbnb_beat
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    volumes:
+      - ./logs:/app/logs
+    command: celery -A app.celery_app.celery_app beat --loglevel=info
+
+volumes:
+  postgres_data:
