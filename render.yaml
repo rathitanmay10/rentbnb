@@ -1,16 +1,15 @@
-services:
-  # ── PostgreSQL (Managed) ───────────────────────────────────────────────────
-  - type: database
-    name: rentbnb_db
+databases:
+  - name: rentbnb_db
     databaseName: rentbnb
     user: admin
-    plan: free # Change to 'starter' or higher for production
+    plan: free
 
+services:
   # ── Redis (Managed) ────────────────────────────────────────────────────────
   - type: redis
     name: rentbnb_redis
-    plan: free # Change to 'starter' or higher for production
-    ipAllowList: [] # Only allow internal connections
+    plan: free
+    ipAllowList: []
 
   # ── FastAPI App (Web Service) ──────────────────────────────────────────────
   - type: web
