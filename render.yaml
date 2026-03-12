@@ -25,15 +25,18 @@ services:
           name: rentbnb_db
           property: connectionString
       - key: REDIS_URL
-        fromRedis:
+        fromService:
+          type: redis
           name: rentbnb_redis
           property: connectionString
       - key: CELERY_BROKER_URL
-        fromRedis:
+        fromService:
+          type: redis
           name: rentbnb_redis
           property: connectionString
       - key: CELERY_RESULT_BACKEND
-        fromRedis:
+        fromService:
+          type: redis
           name: rentbnb_redis
           property: connectionString
       - key: SECRET_KEY
