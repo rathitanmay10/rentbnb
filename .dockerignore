@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.egg-info/
+
+# Git
+.git/
+.gitignore
+
+# Logs & runtime artifacts
+logs/
+celerybeat-schedule*
+
+# Local env
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
