@@ -36,6 +36,8 @@ COPY migrations ./migrations
 COPY alembic.ini ./
 COPY static ./static
 COPY uploads ./uploads
+COPY scripts ./scripts
+RUN chmod +x scripts/render-start.sh
 
 # Create log directory
 RUN mkdir -p logs
