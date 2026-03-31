@@ -3,8 +3,13 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+logs/
 # C extensions
 *.so
+uploads/
+.DS_Store
+app/.DS_Store
+.vscode/
 
 # Distribution / packaging
 .Python
@@ -128,7 +133,7 @@ ipython_config.py
 __pypackages__/
 
 # Celery stuff
-celerybeat-schedule
+celerybeat-schedule*
 celerybeat.pid
 
 # Redis

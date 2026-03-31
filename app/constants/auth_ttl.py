@@ -1,0 +1,11 @@
+# Time-To-Live constants (seconds)
+EMAIL_VERIFY_TTL = 3600  # 1 hour
+OTP_TTL = 600  # 10 minutes
+OTP_COOLDOWN = 60  # 1 minute delay between sends
+RESET_PASSWORD_TTL = 3600
+ACCESS_TOKEN_EXPIRE_MINUTES = 15
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+# Rate Limiting
+OTP_MAX_ATTEMPTS = 3
+RESEND_WAIT_SECONDS = 600

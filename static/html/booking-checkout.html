@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>RentBnB - Book Property</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .info {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Book a Property</h2>
+    <p>Complete your booking and proceed to payment</p>
+
+    <div class="form-group">
+        <label for="access-token">Access Token:</label>
+        <input type="text" id="access-token" placeholder="Enter your JWT access token" />
+    </div>
+
+    <div class="form-group">
+        <label for="property-id">Property ID:</label>
+        <input type="text" id="property-id" placeholder="UUID of the property" />
+    </div>
+
+    <div class="form-group">
+        <label for="check-in">Check-in Date:</label>
+        <input type="date" id="check-in" />
+    </div>
+
+    <div class="form-group">
+        <label for="check-out">Check-out Date:</label>
+        <input type="date" id="check-out" />
+    </div>
+
+    <button id="book-button">Create Booking & Pay</button>
+    <div id="message"></div>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+        const API_BASE = window.location.origin + "/api/v1";
+
+        document.getElementById("book-button").onclick = async function (e) {
+            e.preventDefault();
+
+            const button = this;
+            const messageDiv = document.getElementById("message");
+            const accessToken = document.getElementById("access-token").value;
+            const propertyId = document.getElementById("property-id").value;
+            const checkIn = document.getElementById("check-in").value;
+            const checkOut = document.getElementById("check-out").value;
+
+            // Validation
+            if (!accessToken) {
+                showMessage("Please enter your access token", "error");
+                return;
+            }
+            if (!propertyId) {
+                showMessage("Please enter property ID", "error");
+                return;
+            }
+            if (!checkIn || !checkOut) {
+                showMessage("Please select check-in and check-out dates", "error");
+                return;
+            }
+
+            button.disabled = true;
+            button.innerText = "Creating booking...";
+
+            try {
+                // Step 1: Create booking
+                const bookingResponse = await fetch(`${API_BASE}/bookings/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + accessToken
+                    },
+                    body: JSON.stringify({
+                        property_id: propertyId,
+                        check_in: checkIn,
+                        check_out: checkOut,
+                    })
+                });
+
+                if (!bookingResponse.ok) {
+                    const errorData = await bookingResponse.json();
+                    throw new Error(errorData.detail || "Failed to create booking");
+                }
+
+                const bookingData = await bookingResponse.json();
+                console.log("Booking created:", bookingData);
+
+                // Extract Razorpay details
+                const razorpayKey = bookingData.razorpay_key_id;
+                const razorpayOrderId = bookingData.razorpay_order_id;
+                const amount = bookingData.total_amount;
+                const bookingId = bookingData.booking_id;
+                const paymentId = bookingData.payment_id;
+
+                if (!razorpayKey || !razorpayOrderId) {
+                    throw new Error("Missing Razorpay configuration");
+                }
+
+                showMessage("Booking created! Opening payment gateway...", "success");
+                button.innerText = "Opening Razorpay...";
+
+                // Step 2: Open Razorpay Checkout
+                const options = {
+                    key: razorpayKey,
+                    amount: amount * 100, // Convert to paise
+                    currency: "INR",
+                    name: "RentBnB",
+                    description: `Booking for Property ${propertyId}`,
+                    order_id: razorpayOrderId,
+
+                    // Callback URL with token handoff
+                    callback_url:
+                        window.location.origin + "/api/v1/payments/callback/?token=" +
+                        encodeURIComponent(accessToken) +
+                        "&booking_id=" + bookingId +
+                        "&payment_id=" + paymentId,
+
+                    redirect: true,
+                    retry: { enabled: false },
+
+                    prefill: {
+                        name: "",
+                        email: "",
+                        contact: ""
+                    },
+                    theme: {
+                        color: "#4CAF50"
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+
+            } catch (error) {
+                console.error(error);
+                showMessage("Error: " + error.message, "error");
+                button.disabled = false;
+                button.innerText = "Create Booking & Pay";
+            }
+        };
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById("message");
+            messageDiv.innerText = text;
+            messageDiv.className = type;
+        }
+    </script>
+
+</body>
+
+</html>

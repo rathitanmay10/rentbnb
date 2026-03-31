@@ -1,0 +1,12 @@
+PAYMENT_RECONCILIATION_WINDOWS = [
+    (2, 5),
+    (10, 15),
+    (30, 40),
+    (60, 90),
+    (600, 700),
+]
+
+COMMISSION_PERCENTAGE = 10.0
+
+# Currency
+DEFAULT_CURRENCY = "INR"

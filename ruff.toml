@@ -1,0 +1,32 @@
+target-version = "py311"
+exclude = [
+    "migrations",
+]
+
+[lint]
+select = [
+    "E",              # pycodestyle (errors)
+    "F",              # pyflakes
+    "I",              # isort
+    "ASYNC",          # flake8-async
+    "B",              # bugbear
+    "S",              # bandit
+    "DTZ",            # datetime timezone
+    "UP",             # pyupgrade
+    "RUF",            # ruff-specific rules
+]
+
+extend-select = [
+    "FAST",           # FastAPI rules (flake8-fastapi)
+]
+
+ignore = [
+    "E501",   # long lines ignored (formatters handle it)
+    "B008",   # Depends() false positive
+    "FAST002",
+    "FAST003",
+    "B904"
+]
+
+[lint.pydocstyle]
+convention = "google"
