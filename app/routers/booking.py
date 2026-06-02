@@ -2,15 +2,10 @@ import logging
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Query, status
 
-from app.crud import booking_crud
-from app.database.init_db import get_db
-from app.dependencies.permissions import require_roles
-from app.dependencies.tenant import get_tenant_user
-from app.enums import BookingStatus, UserRole
-from app.models import User
+from app.dependencies.types import DbDep, GuestUserDep, TenantUserDep
+from app.enums import BookingStatus
 from app.schemas.booking import (
     BookingCreate,
     BookingCreateResponse,
@@ -29,8 +24,8 @@ router = APIRouter(prefix="/bookings", tags=["Bookings"])
 )
 async def create_booking(
     booking_data: BookingCreate,
-    current_user: User = Depends(require_roles(UserRole.GUEST)),
-    db: AsyncSession = Depends(get_db),
+    current_user: GuestUserDep,
+    db: DbDep,
 ):
     """
     Create a new booking
@@ -44,39 +39,23 @@ async def create_booking(
 
 @router.get("/my", response_model=BookingListResponse)
 async def list_my_bookings(
+    current_user: TenantUserDep,
+    db: DbDep,
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     status: BookingStatus | None = Query(None),
     property_id: UUID | None = Query(None),
     check_in: date | None = Query(None),
     check_out: date | None = Query(None),
-    current_user: User = Depends(get_tenant_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     List all bookings for the current user
     """
-    bookings = await booking_crud.get_bookings(
+    bookings, total = await booking_service.list_bookings_for_user(
         db,
+        current_user,
         skip=skip,
         limit=limit,
-        guest_id=current_user.id if current_user.role == UserRole.GUEST else None,
-        property_manager_id=current_user.id
-        if current_user.role == UserRole.MANAGER
-        else None,
-        tenant_id=current_user.tenant_id,
-        status=status,
-        property_id=property_id,
-        check_in=check_in,
-        check_out=check_out,
-    )
-    total = await booking_crud.get_bookings_count(
-        db,
-        guest_id=current_user.id if current_user.role == UserRole.GUEST else None,
-        property_manager_id=current_user.id
-        if current_user.role == UserRole.MANAGER
-        else None,
-        tenant_id=current_user.tenant_id,
         status=status,
         property_id=property_id,
         check_in=check_in,
@@ -88,29 +67,20 @@ async def list_my_bookings(
 @router.get("/{booking_id}", response_model=BookingWithPaymentResponse)
 async def get_booking(
     booking_id: UUID,
-    current_user: User = Depends(get_tenant_user),
-    db: AsyncSession = Depends(get_db),
+    current_user: TenantUserDep,
+    db: DbDep,
 ):
     """
     Get a booking by ID
     """
-    booking = await booking_crud.get_booking(db, booking_id)
-    if not booking:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
-        )
-    if booking.tenant_id != current_user.tenant_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
-        )
-    return booking
+    return await booking_service.get_booking_for_user(db, booking_id, current_user)
 
 
 @router.post("/{booking_id}/cancel", response_model=BookingResponse)
 async def cancel_booking(
     booking_id: UUID,
-    current_user: User = Depends(get_tenant_user),
-    db: AsyncSession = Depends(get_db),
+    current_user: TenantUserDep,
+    db: DbDep,
 ):
     """
     Cancel a booking

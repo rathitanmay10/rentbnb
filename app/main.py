@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logger import setup_logging
 from app.core.settings import settings
+from app.exceptions import AppError
 from app.routers import (
     amenity,
     auth,
@@ -23,6 +24,7 @@ from app.routers import (
     websocket,
 )
 from app.utils.exception_handlers import (
+    app_exception_handler,
     db_exception_handler,
     global_exception_handler,
     http_exception_handler,
@@ -54,6 +56,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_exception_handler(AppError, app_exception_handler)
 app.add_exception_handler(IntegrityError, db_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)

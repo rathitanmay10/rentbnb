@@ -1,14 +1,15 @@
 import logging
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.payment import DEFAULT_CURRENCY
 from app.constants.razorpay import RAZORPAY_STATUS_CAPTURED
 from app.core import settings
 from app.crud import booking_crud, payment_crud, property_crud, user_crud, webhook_crud
-from app.enums import BookingStatus, PaymentStatus, WebhookEvents
+from app.enums import BookingStatus, PaymentStatus, UserRole, WebhookEvents
+from app.exceptions import BadRequestError, InternalError, NotFoundError
+from app.models import User
 from app.services import message_service
 from app.tasks.email_tasks import send_email_task
 from app.utils.email_utils import build_booking_email
@@ -36,10 +37,7 @@ async def create_razorpay_order(
         order = await RazorpayClient.create_order(data=data)
         return order
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Razorpay order creation failed: {e!s}",
-        )
+        raise InternalError(f"Razorpay order creation failed: {e!s}")
 
 
 async def verify_payment_signature(
@@ -59,16 +57,38 @@ async def verify_payment_signature(
         return False
 
 
+async def get_booking_payments(
+    db: AsyncSession, booking_id: UUID, current_user: User
+) -> list:
+    """Return payments for a booking, scoped to the caller's access.
+
+    A 404 is raised (rather than 403) on cross-tenant or unauthorized access
+    to avoid leaking booking existence.
+    """
+    booking = await booking_crud.get_booking(db, booking_id)
+    if not booking or booking.tenant_id != current_user.tenant_id:
+        raise NotFoundError("Booking not found")
+
+    if current_user.role == UserRole.GUEST and booking.guest_id != current_user.id:
+        raise NotFoundError("Booking not found")
+    if (
+        current_user.role == UserRole.MANAGER
+        and booking.property_manager_id != current_user.id
+    ):
+        raise NotFoundError("Booking not found")
+
+    return await payment_crud.get_payments_by_booking(
+        db, booking_id, current_user.tenant_id
+    )
+
+
 async def process_webhook(
     db: AsyncSession, payload: dict, body: bytes, signature: str, event_id: str
 ):
     """Process Razorpay webhook."""
     if not settings.RAZORPAY_WEBHOOK_SECRET:
         logger.error("Webhook secret not configured")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Webhook secret not configured",
-        )
+        raise InternalError("Webhook secret not configured")
 
     try:
         RazorpayClient.verify_webhook_signature(
@@ -76,12 +96,8 @@ async def process_webhook(
         )
     except Exception as e:
         logger.error(f"Signature verification failed: {type(e).__name__}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid webhook signature",
-        )
+        raise BadRequestError("Invalid webhook signature")
 
-    event_id = event_id
     event_type = payload.get("event")
 
     webhook = await webhook_crud.get_webhook_by_event_id(db, event_id)
@@ -103,22 +119,19 @@ async def process_webhook(
         )
         await db.commit()
 
-    try:
-        if event_type == WebhookEvents.PAYMENT_CAPTURED:
-            await _handle_payment_captured(db, payload)
-        elif event_type == WebhookEvents.PAYMENT_FAILED:
-            await _handle_payment_failed(db, payload)
-        elif event_type == WebhookEvents.REFUND_PROCESSED:
-            await _handle_refund_processed(db, payload)
-        elif event_type == WebhookEvents.REFUND_CREATED:
-            logger.info(f"Refund created for event {event_id}")
-        elif event_type == WebhookEvents.REFUND_FAILED:
-            logger.error(f"Refund failed for event {event_id}")
+    if event_type == WebhookEvents.PAYMENT_CAPTURED:
+        await _handle_payment_captured(db, payload)
+    elif event_type == WebhookEvents.PAYMENT_FAILED:
+        await _handle_payment_failed(db, payload)
+    elif event_type == WebhookEvents.REFUND_PROCESSED:
+        await _handle_refund_processed(db, payload)
+    elif event_type == WebhookEvents.REFUND_CREATED:
+        logger.info(f"Refund created for event {event_id}")
+    elif event_type == WebhookEvents.REFUND_FAILED:
+        logger.error(f"Refund failed for event {event_id}")
 
-        await webhook_crud.mark_webhook_processed(db, webhook.id)
-        await db.commit()
-    except Exception as e:
-        raise e
+    await webhook_crud.mark_webhook_processed(db, webhook.id)
+    await db.commit()
 
     return {"status": "processed"}
 

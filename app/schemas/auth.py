@@ -4,18 +4,18 @@ from app.utils.validators import validate_password, validate_username
 
 
 class RegisterSchema(BaseModel):
-    email: EmailStr = Field(..., max_length=255)
+    email: EmailStr = Field(max_length=255)
     username: str
     password: str
 
     @field_validator("username")
     @classmethod
-    def _validate_username(cls, v):
+    def _validate_username(cls, v: str) -> str:
         return validate_username(v)
 
     @field_validator("password")
     @classmethod
-    def _validate_password(cls, v):
+    def _validate_password(cls, v: str) -> str:
         return validate_password(v)
 
 
@@ -24,17 +24,17 @@ class VerifyEmailSchema(BaseModel):
 
 
 class EmailOnlySchema(BaseModel):
-    email: EmailStr = Field(..., max_length=255)
+    email: EmailStr = Field(max_length=255)
 
 
 class LoginSchema(BaseModel):
-    email: EmailStr = Field(..., max_length=255)
+    email: EmailStr = Field(max_length=255)
     password: str
 
 
 class VerifyLoginSchema(BaseModel):
-    email: EmailStr = Field(..., max_length=255)
-    otp: str = Field(..., min_length=6, max_length=6, description="6-digit OTP")
+    email: EmailStr = Field(max_length=255)
+    otp: str = Field(min_length=6, max_length=6, description="6-digit OTP")
 
 
 class TokenResponse(BaseModel):
@@ -47,12 +47,12 @@ class RefreshSchema(BaseModel):
 
 
 class ChangePasswordSchema(BaseModel):
-    old_password: str = Field(..., min_length=1)
+    old_password: str = Field(min_length=1)
     new_password: str
 
     @field_validator("new_password")
     @classmethod
-    def _validate_new_password(cls, v):
+    def _validate_new_password(cls, v: str) -> str:
         return validate_password(v)
 
     @model_validator(mode="after")
@@ -63,7 +63,7 @@ class ChangePasswordSchema(BaseModel):
 
 
 class ForgotPasswordSchema(BaseModel):
-    email: EmailStr = Field(..., max_length=255)
+    email: EmailStr = Field(max_length=255)
 
 
 class ResetPasswordSchema(BaseModel):
@@ -72,5 +72,5 @@ class ResetPasswordSchema(BaseModel):
 
     @field_validator("new_password")
     @classmethod
-    def _validate_new_password(cls, v):
+    def _validate_new_password(cls, v: str) -> str:
         return validate_password(v)

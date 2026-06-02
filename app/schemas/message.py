@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.enums import MessageType
 
@@ -28,7 +28,7 @@ class MessageResponse(BaseModel):
     message_type: MessageType
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MessageListResponse(BaseModel):

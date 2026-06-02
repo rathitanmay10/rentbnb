@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.enums import UserRole
 from app.utils.validators import (
@@ -19,7 +19,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     username: str
-    email: EmailStr = Field(..., max_length=255)
+    email: EmailStr = Field(max_length=255)
     password: str
     tenant_id: UUID | None = None
     role: UserRole = UserRole.GUEST
@@ -28,12 +28,12 @@ class UserCreate(UserBase):
 
     @field_validator("username")
     @classmethod
-    def _validate_username(cls, v):
+    def _validate_username(cls, v: str) -> str:
         return validate_username(v)
 
     @field_validator("password")
     @classmethod
-    def _validate_password(cls, v):
+    def _validate_password(cls, v: str) -> str:
         return validate_password(v)
 
     @field_validator("first_name")
@@ -96,7 +96,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserListResponse(BaseModel):

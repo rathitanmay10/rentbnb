@@ -1,10 +1,10 @@
 from datetime import date
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, Query
 
-from app.database.init_db import get_db
-from app.dependencies import require_roles, require_super_admin
+from app.dependencies import require_roles
+from app.dependencies.types import DbDep, SuperAdminDep
 from app.enums import UserRole
 from app.models import User
 from app.schemas.dashboard import PlatformDashboardResponse, TenantDashboardResponse
@@ -13,20 +13,12 @@ from app.services import dashboard_service
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
-def validate_dates(from_date: date | None, to_date: date | None) -> None:
-    if from_date and to_date and from_date > to_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Start date cannot be after end date",
-        )
-
-
 @router.get("/tenant", response_model=TenantDashboardResponse)
 async def get_tenant_dashboard(
+    current_user: Annotated[User, Depends(require_roles(UserRole.TENANT_ADMIN))],
+    db: DbDep,
     from_date: date | None = Query(None, description="Start date for metrics"),
     to_date: date | None = Query(None, description="End date for metrics"),
-    current_user: User = Depends(require_roles(UserRole.TENANT_ADMIN)),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Get tenant dashboard metrics.
@@ -42,7 +34,6 @@ async def get_tenant_dashboard(
     - active_guests: Distinct guests with bookings in the date range
     """
 
-    validate_dates(from_date, to_date)
     return await dashboard_service.get_tenant_dashboard(
         db, current_user.tenant_id, from_date, to_date
     )
@@ -50,10 +41,10 @@ async def get_tenant_dashboard(
 
 @router.get("/platform", response_model=PlatformDashboardResponse)
 async def get_platform_dashboard(
+    current_user: SuperAdminDep,
+    db: DbDep,
     from_date: date | None = Query(None, description="Start date for revenue metrics"),
     to_date: date | None = Query(None, description="End date for revenue metrics"),
-    current_user: User = Depends(require_super_admin),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Get platform dashboard metrics.
@@ -67,5 +58,4 @@ async def get_platform_dashboard(
     - total_revenue: Total platform revenue from paid payments in date range
     - bookings_in_range: Bookings created within the date range
     """
-    validate_dates(from_date, to_date)
     return await dashboard_service.get_platform_dashboard(db, from_date, to_date)

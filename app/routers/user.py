@@ -1,8 +1,7 @@
 import secrets
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from app.constants.auth_ttl import EMAIL_VERIFY_TTL
 from app.constants.redis_keys import (
@@ -10,15 +9,14 @@ from app.constants.redis_keys import (
     REDIS_VERIFICATION_TOKEN,
     get_tenant_prefix,
 )
-from app.database.init_db import get_db
-from app.dependencies import (
-    get_current_user,
-    require_roles,
-    require_tenant_or_super_admin,
+from app.dependencies.tenant import verify_tenant_access
+from app.dependencies.types import (
+    CurrentUserDep,
+    DbDep,
+    GuestUserDep,
+    TenantOrSuperAdminDep,
 )
-from app.dependencies.tenant import verify_tenant_access, verify_tenant_admin_management
-from app.enums import UserRole
-from app.models import User
+from app.exceptions import TooManyRequestsError
 from app.schemas import (
     UserCreate,
     UserListResponse,
@@ -42,8 +40,8 @@ router = APIRouter(prefix="/users", tags=["Users"])
 async def create_user(
     user_data: UserCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_tenant_or_super_admin),
+    db: DbDep,
+    current_user: TenantOrSuperAdminDep,
 ):
     """
     Create a new user (TENANT_ADMIN or SUPER_ADMIN only).
@@ -54,40 +52,16 @@ async def create_user(
     - GUEST users will always have tenant_id=None
     - Email and username must be unique (case-insensitive)
     """
+    user_service.authorize_user_creation(current_user, user_data)
 
-    if user_data.role == UserRole.SUPER_ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Super admins cannot be created",
-        )
-    if current_user.role == UserRole.SUPER_ADMIN and user_data.tenant_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Super Admin needs to provide tenant_id",
-        )
-
-    if current_user.role == UserRole.TENANT_ADMIN:
-        if user_data.role not in [UserRole.MANAGER, UserRole.GUEST]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Tenant admins can only create Managers or Guests",
-            )
-        tenant_id = current_user.tenant_id
-        user_data.tenant_id = tenant_id
     tenant_prefix = get_tenant_prefix(user_data.tenant_id)
     verification_key = (
         f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=user_data.email)}"
     )
     if await redis_client.get(verification_key) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Verification email already sent. Please wait.",
-        )
+        raise TooManyRequestsError("Verification email already sent. Please wait.")
 
-    try:
-        user = await user_service.create_user(db, user_data, user_data.tenant_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    user = await user_service.create_user(db, user_data, user_data.tenant_id)
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
@@ -117,10 +91,10 @@ async def create_user(
     summary="List users",
 )
 async def list_users(
+    db: DbDep,
+    current_user: TenantOrSuperAdminDep,
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_tenant_or_super_admin),
 ):
     """
     List users with pagination.
@@ -138,7 +112,7 @@ async def list_users(
     summary="Get current user profile",
 )
 async def get_current_user_profile(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUserDep,
 ):
     """
     Get current authenticated user's profile.
@@ -153,8 +127,8 @@ async def get_current_user_profile(
 )
 async def get_user(
     user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_tenant_or_super_admin),
+    db: DbDep,
+    current_user: TenantOrSuperAdminDep,
 ):
     """
     Get a specific user by ID.
@@ -181,18 +155,13 @@ async def get_user(
 )
 async def update_me(
     user_data: UserSelfUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: DbDep,
+    current_user: CurrentUserDep,
 ):
     """
     Update current authenticated user's profile.
     """
-
-    try:
-        user = await user_service.update_user(db, current_user.id, user_data)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
+    user = await user_service.update_user(db, current_user.id, user_data)
     return user
 
 
@@ -204,32 +173,13 @@ async def update_me(
 async def update_user(
     user_id: UUID,
     user_data: UserUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_tenant_or_super_admin),
+    db: DbDep,
+    current_user: TenantOrSuperAdminDep,
 ):
     """
     Update a user.
     """
-    target_user = await user_service.get_user(db, user_id)
-    if not target_user or target_user.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
-    # Check permissions
-
-    if current_user.role == UserRole.TENANT_ADMIN:
-        verify_tenant_admin_management(current_user, target_user)
-
-    try:
-        user = await user_service.update_user(db, user_id, user_data)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
+    user = await user_service.update_user(db, user_id, user_data, current_user)
     return user
 
 
@@ -239,14 +189,13 @@ async def update_user(
     summary="Self delete user",
 )
 async def delete_me(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.GUEST)),
-):
+    db: DbDep,
+    current_user: GuestUserDep,
+) -> None:
     """
     Guest users can delete themselves
     """
     await user_service.delete_user(db, current_user)
-    return
 
 
 @router.delete(
@@ -256,9 +205,9 @@ async def delete_me(
 )
 async def delete_user(
     user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_tenant_or_super_admin),
-):
+    db: DbDep,
+    current_user: TenantOrSuperAdminDep,
+) -> None:
     """
     Soft delete a user (TENANT_ADMIN or SUPER_ADMIN only).
 
@@ -272,12 +221,4 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    if target_user.id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="You cannot delete yourself"
-        )
-    if current_user.role == UserRole.TENANT_ADMIN:
-        verify_tenant_admin_management(current_user, target_user)
-
-    await user_service.delete_user(db, target_user)
-    return
+    await user_service.delete_user(db, target_user, current_user)

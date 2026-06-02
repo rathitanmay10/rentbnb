@@ -3,7 +3,7 @@ import secrets
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import BackgroundTasks, HTTPException, status
+from fastapi import BackgroundTasks
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,13 @@ from app.constants.redis_keys import (
 from app.core.settings import settings
 from app.crud import blacklist_crud, user_crud
 from app.enums import TenantStatus, UserRole
+from app.exceptions import (
+    BadRequestError,
+    ForbiddenError,
+    NotFoundError,
+    TooManyRequestsError,
+    UnauthorizedError,
+)
 from app.models import User
 from app.schemas import UserCreate
 from app.schemas.auth import (
@@ -68,10 +75,7 @@ async def register_user(
         f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=register_data.email)}"
     )
     if await redis_client.get(verification_key) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Verification email already sent. Please wait.",
-        )
+        raise TooManyRequestsError("Verification email already sent. Please wait.")
 
     user_data = UserCreate(
         username=register_data.username,
@@ -84,7 +88,7 @@ async def register_user(
     try:
         user = await user_service.create_user(db, user_data, tenant_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise BadRequestError(str(e))
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
@@ -122,10 +126,7 @@ async def resend_verification_email(
     if ttl > 0:
         elapsed = EMAIL_VERIFY_TTL - ttl
         if elapsed < RESEND_WAIT_SECONDS:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Wait before resending.",
-            )
+            raise TooManyRequestsError("Wait before resending.")
     user = await user_service.get_user_by_email(db, data.email, tenant_id)
 
     if not user:
@@ -160,16 +161,11 @@ async def verify_email(db: AsyncSession, token: str) -> bool:
     user_id = await redis_client.get(REDIS_VERIFICATION_TOKEN.format(token=token))
 
     if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token",
-        )
+        raise BadRequestError("Invalid or expired verification token")
 
     user = await user_crud.get_user(db, UUID(user_id))
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise NotFoundError("User not found")
 
     if user.is_verified:
         return True
@@ -202,29 +198,20 @@ async def login_password(
     user = await user_service.get_user_by_email(db, login_data.email, tenant_id)
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_INVALID_CREDENTIALS
-        )
+        raise UnauthorizedError(AUTH_INVALID_CREDENTIALS)
 
     if not verify_password(login_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_INVALID_CREDENTIALS
-        )
+        raise UnauthorizedError(AUTH_INVALID_CREDENTIALS)
 
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
+        raise ForbiddenError(AUTH_INACTIVE)
 
     if not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=AUTH_UNVERIFIED,
-        )
+        raise ForbiddenError(AUTH_UNVERIFIED)
 
     if user.tenant_id and user.tenant:
         if user.tenant.is_deleted or user.tenant.status == TenantStatus.INACTIVE:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is inactive"
-            )
+            raise ForbiddenError("Tenant is inactive")
 
     # Issue tokens
     access_token = create_access_token(user)
@@ -249,7 +236,7 @@ async def login_otp_init(
         return {"message": OTP_SENT}
 
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
+        raise ForbiddenError(AUTH_INACTIVE)
     await OTPHandler.send_otp(email, background_tasks, tenant_id)
 
     return {"message": OTP_SENT}
@@ -265,18 +252,14 @@ async def login_otp_verify(
 
     user = await user_service.get_user_by_email(db, verify_data.email, tenant_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise NotFoundError("User not found")
 
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=AUTH_INACTIVE)
+        raise ForbiddenError(AUTH_INACTIVE)
 
     if user.tenant_id and user.tenant:
         if user.tenant.is_deleted or user.tenant.status == TenantStatus.INACTIVE:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is inactive"
-            )
+            raise ForbiddenError("Tenant is inactive")
 
     # Issue tokens
     access_token = create_access_token(user)
@@ -300,10 +283,7 @@ async def forgot_password(
     if ttl > 0:
         elapsed = RESET_PASSWORD_TTL - ttl
         if elapsed < RESEND_WAIT_SECONDS:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Wait before resending.",
-            )
+            raise TooManyRequestsError("Wait before resending.")
     user = await user_service.get_user_by_email(db, data.email, tenant_id)
     if not user:
         # Don't reveal user existence
@@ -336,36 +316,25 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> dict:
     try:
         payload = jwt.decode(refresh_token, SECRET, algorithms=[ALGO])
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
-        )
+        raise UnauthorizedError("Invalid refresh token")
 
     if payload.get("type") != TOKEN_TYPE_REFRESH:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type"
-        )
+        raise UnauthorizedError("Invalid token type")
 
     user_id = payload.get("sub")
     jti = payload.get("jti")
 
     # Check if token is blacklisted
     if await blacklist_crud.is_token_blacklisted(db, jti):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked"
-        )
+        raise UnauthorizedError("Token has been revoked")
 
     user = await user_crud.get_user(db, UUID(user_id))
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
-        )
+        raise UnauthorizedError("User not found")
 
     # Check token version
     if payload.get("token_version") != user.token_version:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has been invalidated",
-        )
+        raise UnauthorizedError("Token has been invalidated")
 
     # Issue new pair
     access_token = create_access_token(user)
@@ -387,9 +356,7 @@ async def change_password(
     """
     # Verify old password
     if not verify_password(change_data.old_password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect old password"
-        )
+        raise BadRequestError("Incorrect old password")
 
     # Update password
     new_hashed = hash_password(change_data.new_password)
@@ -422,16 +389,11 @@ async def reset_password(
     reset_token_key = f"{tenant_prefix}{REDIS_RESET_TOKEN.format(token=data.token)}"
     user_id = await redis_client.get(reset_token_key)
     if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token",
-        )
+        raise BadRequestError("Invalid or expired reset token")
 
     user = await user_crud.get_user(db, UUID(user_id))
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise NotFoundError("User not found")
 
     # Update password
     new_hashed = hash_password(data.new_password)
