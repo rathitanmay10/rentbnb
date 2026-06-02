@@ -25,7 +25,10 @@ async def get_amenity(db: AsyncSession, amenity_id: UUID) -> Amenity:
 
 
 async def update_amenity(db: AsyncSession, amenity_id: UUID, name: str) -> Amenity:
-    if await amenity_crud.get_amenity_by_name(db, name):
+    if not await amenity_crud.get_amenity(db, amenity_id):
+        raise NotFoundError("Amenity not found")
+    existing = await amenity_crud.get_amenity_by_name(db, name)
+    if existing and existing.id != amenity_id:
         raise ConflictError("Amenity already exists")
     return await amenity_crud.update_amenity(db, amenity_id, name)
 

@@ -204,9 +204,11 @@ async def list_bookings_for_user(
 
 
 async def get_booking_for_user(db: AsyncSession, booking_id: UUID, current_user: User):
-    """Fetch a booking, enforcing tenant isolation."""
+    """Fetch a booking, enforcing tenant isolation and guest ownership."""
     booking = await booking_crud.get_booking(db, booking_id)
     if not booking or booking.tenant_id != current_user.tenant_id:
+        raise NotFoundError("Booking not found")
+    if current_user.role == UserRole.GUEST and booking.guest_id != current_user.id:
         raise NotFoundError("Booking not found")
     return booking
 

@@ -53,10 +53,10 @@ class RazorpayClient:
         try:
             client = cls.get_client()
             return client.utility.verify_payment_signature(data)
-        except razorpay.errors.SignatureVerificationError:
-            raise BadRequestError("Invalid payment signature")
+        except razorpay.errors.SignatureVerificationError as e:
+            raise BadRequestError("Invalid payment signature") from e
         except Exception as e:
-            raise InternalError(str(e))
+            raise InternalError("Razorpay processing error") from e
 
     @classmethod
     def verify_webhook_signature(

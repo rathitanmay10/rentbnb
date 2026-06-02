@@ -37,7 +37,8 @@ async def create_razorpay_order(
         order = await RazorpayClient.create_order(data=data)
         return order
     except Exception as e:
-        raise InternalError(f"Razorpay order creation failed: {e!s}")
+        logger.exception("Razorpay order creation failed")
+        raise InternalError("Razorpay order creation failed") from e
 
 
 async def verify_payment_signature(
