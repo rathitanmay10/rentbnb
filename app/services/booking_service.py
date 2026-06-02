@@ -1,9 +1,8 @@
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.booking import (
@@ -14,6 +13,7 @@ from app.constants.payment import COMMISSION_PERCENTAGE, DEFAULT_CURRENCY
 from app.core.settings import settings
 from app.crud import booking_crud, payment_crud, property_crud, user_crud
 from app.enums import BookingStatus, PaymentStatus, UserRole
+from app.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.models import User
 from app.schemas.booking import BookingCreate
 from app.services import message_service, payment_service
@@ -35,23 +35,16 @@ async def create_booking(
         db, data.property_id, user.tenant_id
     )
     if not property_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
-        )
+        raise NotFoundError("Property not found")
     if not property_obj.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Property is not active"
-        )
+        raise ForbiddenError("Property is not active")
     # Check availability manually
     # The lock ensures no one else is booking this property right now.
     conflict = await booking_crud.check_availability(
         db, data.property_id, data.check_in, data.check_out
     )
     if conflict:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Property not available for selected dates",
-        )
+        raise ConflictError("Property not available for selected dates")
 
     nights = (data.check_out - data.check_in).days
     base_amount = nights * property_obj.price_per_night
@@ -79,12 +72,9 @@ async def create_booking(
     await db.refresh(booking)
 
     # Create Razorpay order (External API Call - NO LOCK HELD)
-    try:
-        order = await payment_service.create_razorpay_order(
-            db, booking.id, int(total_amount * 100)
-        )
-    except Exception as e:
-        raise e
+    order = await payment_service.create_razorpay_order(
+        db, booking.id, int(total_amount * 100)
+    )
 
     # Create payment record
     payment = await payment_crud.create_payment(
@@ -121,9 +111,7 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
     """Cancel booking."""
     booking = await booking_crud.get_booking(db, booking_id)
     if not booking:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
-        )
+        raise NotFoundError("Booking not found")
 
     # Auth check: Guest or Manager or Admin
     is_guest = booking.guest_id == user.id
@@ -133,9 +121,7 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
     )
 
     if not (is_guest or is_manager or is_admin):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
+        raise ForbiddenError("Not authorized")
 
     if booking.status == BookingStatus.CANCELLED:
         return booking
@@ -172,6 +158,58 @@ async def cancel_booking(db: AsyncSession, booking_id: UUID, user: User):
             )
             email_tasks.send_email_task.delay(email, subject, body)
 
+    return booking
+
+
+async def list_bookings_for_user(
+    db: AsyncSession,
+    current_user: User,
+    *,
+    skip: int,
+    limit: int,
+    status: BookingStatus | None,
+    property_id: UUID | None,
+    check_in: date | None,
+    check_out: date | None,
+):
+    """List bookings for the current user with role-based filtering."""
+    guest_id = current_user.id if current_user.role == UserRole.GUEST else None
+    property_manager_id = (
+        current_user.id if current_user.role == UserRole.MANAGER else None
+    )
+
+    bookings = await booking_crud.get_bookings(
+        db,
+        skip=skip,
+        limit=limit,
+        guest_id=guest_id,
+        property_manager_id=property_manager_id,
+        tenant_id=current_user.tenant_id,
+        status=status,
+        property_id=property_id,
+        check_in=check_in,
+        check_out=check_out,
+    )
+    total = await booking_crud.get_bookings_count(
+        db,
+        guest_id=guest_id,
+        property_manager_id=property_manager_id,
+        tenant_id=current_user.tenant_id,
+        status=status,
+        property_id=property_id,
+        check_in=check_in,
+        check_out=check_out,
+    )
+    return bookings, total
+
+
+async def get_booking_for_user(db: AsyncSession, booking_id: UUID, current_user: User):
+    """Fetch a booking, enforcing tenant isolation and guest ownership."""
+    booking = await booking_crud.get_booking(db, booking_id)
+    if not booking or booking.tenant_id != current_user.tenant_id:
+        raise NotFoundError("Booking not found")
+    if current_user.role == UserRole.GUEST and booking.guest_id != current_user.id:
+        raise NotFoundError("Booking not found")
     return booking
 
 

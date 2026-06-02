@@ -1,11 +1,11 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import booking_crud, property_crud, review_crud
 from app.enums import BookingStatus
+from app.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models.user import User
 from app.schemas.review import (
     PropertyReviewListResponse,
@@ -23,29 +23,15 @@ async def create_review(
         db, booking_id, current_user.id
     )
     if booking is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
-        )
+        raise NotFoundError("Booking not found")
     if booking.guest_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to review this booking",
-        )
+        raise ForbiddenError("You are not authorized to review this booking")
     if booking.status != BookingStatus.CONFIRMED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Booking must be confirmed to be reviewed",
-        )
+        raise BadRequestError("Booking must be confirmed to be reviewed")
     if booking.check_out > datetime.now(UTC).date():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Booking must be completed to be reviewed",
-        )
+        raise BadRequestError("Booking must be completed to be reviewed")
     if booking.review is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Booking has already been reviewed",
-        )
+        raise BadRequestError("Booking has already been reviewed")
     review_obj = await review_crud.create_review(
         db,
         review,
@@ -75,9 +61,9 @@ async def get_reviews_by_property_id(
     """Get reviews for a property."""
     property_obj = await property_crud.get_property(db, property_id)
     if not property_obj:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError("Property not found")
     if property_obj.tenant_id != current_user.tenant_id:
-        raise HTTPException(status_code=404, detail="Property not found")
+        raise NotFoundError("Property not found")
     reviews, total = await review_crud.get_reviews_by_property_id(
         db,
         tenant_id=current_user.tenant_id,
@@ -102,14 +88,9 @@ async def get_review_by_id(
     """Get review by ID."""
     review = await review_crud.get_review_by_id(db, review_id)
     if review is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Review not found"
-        )
+        raise NotFoundError("Review not found")
     if review.tenant_id != current_user.tenant_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Review not found",
-        )
+        raise NotFoundError("Review not found")
     return review
 
 
@@ -122,19 +103,11 @@ async def update_review(
     """Update a review."""
     review_obj = await review_crud.get_review_by_id(db, review_id)
     if review_obj is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Review not found"
-        )
+        raise NotFoundError("Review not found")
     if review_obj.tenant_id != current_user.tenant_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Review not found",
-        )
+        raise NotFoundError("Review not found")
     if review_obj.guest_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to update this review",
-        )
+        raise ForbiddenError("You are not authorized to update this review")
     old_rating = review_obj.rating
     review = await review_crud.update_review(db, review_id, review_update)
     if review.rating != old_rating:
@@ -157,19 +130,11 @@ async def delete_review(
     """Delete a review."""
     review_obj = await review_crud.get_review_by_id(db, review_id)
     if review_obj is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Review not found"
-        )
+        raise NotFoundError("Review not found")
     if review_obj.tenant_id != current_user.tenant_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Review not found",
-        )
+        raise NotFoundError("Review not found")
     if review_obj.guest_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to delete this review",
-        )
+        raise ForbiddenError("You are not authorized to delete this review")
     await review_crud.delete_review(db, review_id)
     property_obj = await property_crud.get_property(db, review_obj.property_id)
     if property_obj.review_count > 1:

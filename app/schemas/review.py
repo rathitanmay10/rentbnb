@@ -1,11 +1,11 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ReviewBase(BaseModel):
-    rating: int = Field(..., ge=1, le=5)
+    rating: int = Field(ge=1, le=5)
     comment: str | None = Field(None, max_length=2000)
 
     @field_validator("comment")
@@ -48,7 +48,7 @@ class ReviewResponse(ReviewBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReviewListResponse(BaseModel):
@@ -65,7 +65,7 @@ class PropertyReviewResponse(ReviewBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PropertyReviewListResponse(BaseModel):

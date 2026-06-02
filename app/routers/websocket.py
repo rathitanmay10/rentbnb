@@ -1,13 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.jwt import TOKEN_TYPE_ACCESS
 from app.core.settings import settings
 from app.crud import booking_crud
-from app.database.init_db import get_db
+from app.dependencies.types import DbDep
 from app.enums import TenantStatus, UserRole
 from app.models import User
 from app.services import message_service
@@ -80,7 +80,7 @@ async def websocket_endpoint(
     websocket: WebSocket,
     booking_id: UUID,
     token: str,
-    db: AsyncSession = Depends(get_db),
+    db: DbDep,
 ):
     try:
         await websocket.accept()

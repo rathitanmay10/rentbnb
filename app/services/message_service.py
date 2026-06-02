@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import booking_crud, message_crud
 from app.enums import MessageType, UserRole
+from app.exceptions import ForbiddenError, NotFoundError
 from app.models import User
 from app.utils.websocket_manager import manager
 
@@ -15,9 +15,7 @@ async def create_user_message(
     """Create a message from a user."""
     booking = await booking_crud.get_booking(db, booking_id)
     if not booking:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
-        )
+        raise NotFoundError("Booking not found")
 
     # Auth check
     is_guest = booking.guest_id == user.id
@@ -27,9 +25,7 @@ async def create_user_message(
     )
 
     if not (is_guest or is_manager or is_tenant_admin):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
+        raise ForbiddenError("Not authorized")
 
     message = await message_crud.create_message(
         db,
@@ -97,9 +93,7 @@ async def get_booking_messages(
     """Get messages for a booking."""
     booking = await booking_crud.get_booking(db, booking_id)
     if not booking:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
-        )
+        raise NotFoundError("Booking not found")
 
     is_guest = booking.guest_id == user.id
     is_manager = booking.property_manager_id == user.id
@@ -107,9 +101,7 @@ async def get_booking_messages(
         user.role == UserRole.TENANT_ADMIN and user.tenant_id == booking.tenant_id
     )
     if not (is_guest or is_manager or is_tenant_admin):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
+        raise ForbiddenError("Not authorized")
     messages = await message_crud.get_messages_by_booking(db, booking_id, skip, limit)
     total = await message_crud.get_messages_count(db, booking_id)
 

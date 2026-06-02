@@ -1,8 +1,8 @@
 import razorpay
-from fastapi import HTTPException, status
 from starlette.concurrency import run_in_threadpool
 
 from app.core import settings
+from app.exceptions import BadRequestError, InternalError
 
 
 class RazorpayClient:
@@ -53,16 +53,10 @@ class RazorpayClient:
         try:
             client = cls.get_client()
             return client.utility.verify_payment_signature(data)
-        except razorpay.errors.SignatureVerificationError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid payment signature",
-            )
+        except razorpay.errors.SignatureVerificationError as e:
+            raise BadRequestError("Invalid payment signature") from e
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e),
-            )
+            raise InternalError("Razorpay processing error") from e
 
     @classmethod
     def verify_webhook_signature(

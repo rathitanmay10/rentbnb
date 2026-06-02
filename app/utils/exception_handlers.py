@@ -7,9 +7,18 @@ from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.constants.messages import INTERNAL_ERROR
+from app.exceptions import AppError
 from app.utils.db_errors import extract_pg_error
 
 logger = logging.getLogger(__name__)
+
+
+async def app_exception_handler(request: Request, exc: AppError):
+    """Map domain errors to HTTP responses."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail},
+    )
 
 
 async def db_exception_handler(request: Request, exc: IntegrityError):
@@ -21,7 +30,7 @@ async def db_exception_handler(request: Request, exc: IntegrityError):
     logger.warning(f"Database integrity error: {message}")
 
     return JSONResponse(
-        status_code=400,
+        status_code=status.HTTP_400_BAD_REQUEST,
         content={"error": message},
     )
 
@@ -34,15 +43,15 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    errors = []
+    fields = []
     for error in exc.errors():
         field = ".".join(str(x) for x in error["loc"] if x != "body")
         msg = error["msg"]
-        errors.append({"field": field, "message": msg})
+        fields.append({"field": field, "message": msg})
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"errors": errors},
+        content={"error": "Validation failed", "fields": fields},
     )
 
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.constants.booking import MAX_ADVANCE_BOOKING_DAYS, MAX_BOOKING_DURATION_DAYS
 from app.enums import BookingStatus
@@ -55,7 +55,7 @@ class BookingCreateResponse(BaseModel):
     booking_id: uuid.UUID
     payment_id: uuid.UUID
     status: BookingStatus
-    total_amount: Decimal = Field(..., gt=0)
+    total_amount: Decimal = Field(gt=0)
     expires_at: datetime
     razorpay_order_id: str
     razorpay_key_id: str
@@ -75,7 +75,7 @@ class BookingResponse(BookingBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BookingWithPaymentResponse(BookingResponse):
