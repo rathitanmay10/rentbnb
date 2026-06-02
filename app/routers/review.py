@@ -3,6 +3,11 @@ from uuid import UUID
 from fastapi import APIRouter, Query, status
 
 from app.dependencies.types import DbDep, GuestUserDep, TenantUserDep
+from app.schemas.error import (
+    BAD_REQUEST,
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.schemas.review import (
     PropertyReviewListResponse,
     ReviewCreate,
@@ -11,13 +16,14 @@ from app.schemas.review import (
 )
 from app.services import review_service
 
-router = APIRouter(prefix="", tags=["Reviews"])
+router = APIRouter(prefix="", tags=["Reviews"], responses={**NOT_FOUND, **FORBIDDEN})
 
 
 @router.post(
     "/bookings/{booking_id}/reviews",
     response_model=ReviewResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={**BAD_REQUEST},
 )
 async def create_review(
     booking_id: UUID,

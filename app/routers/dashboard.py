@@ -8,12 +8,21 @@ from app.dependencies.types import DbDep, SuperAdminDep
 from app.enums import UserRole
 from app.models import User
 from app.schemas.dashboard import PlatformDashboardResponse, TenantDashboardResponse
+from app.schemas.error import (
+    BAD_REQUEST,
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.services import dashboard_service
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+router = APIRouter(
+    prefix="/dashboard", tags=["Dashboard"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
-@router.get("/tenant", response_model=TenantDashboardResponse)
+@router.get(
+    "/tenant", response_model=TenantDashboardResponse, responses={**BAD_REQUEST}
+)
 async def get_tenant_dashboard(
     current_user: Annotated[User, Depends(require_roles(UserRole.TENANT_ADMIN))],
     db: DbDep,
@@ -39,7 +48,9 @@ async def get_tenant_dashboard(
     )
 
 
-@router.get("/platform", response_model=PlatformDashboardResponse)
+@router.get(
+    "/platform", response_model=PlatformDashboardResponse, responses={**BAD_REQUEST}
+)
 async def get_platform_dashboard(
     current_user: SuperAdminDep,
     db: DbDep,

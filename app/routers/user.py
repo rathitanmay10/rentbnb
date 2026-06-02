@@ -24,11 +24,20 @@ from app.schemas import (
     UserSelfUpdate,
     UserUpdate,
 )
+from app.schemas.error import (
+    BAD_REQUEST,
+    CONFLICT,
+    FORBIDDEN,
+    NOT_FOUND,
+    TOO_MANY,
+)
 from app.services import email_service, user_service
 from app.utils.email_utils import build_verification_email
 from app.utils.redis_client import redis_client
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter(
+    prefix="/users", tags=["Users"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.post(
@@ -36,6 +45,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new user",
+    responses={**CONFLICT, **TOO_MANY, **BAD_REQUEST},
 )
 async def create_user(
     user_data: UserCreate,
@@ -152,6 +162,7 @@ async def get_user(
     "/me",
     response_model=UserResponse,
     summary="Update current user profile",
+    responses={**CONFLICT},
 )
 async def update_me(
     user_data: UserSelfUpdate,
@@ -169,6 +180,7 @@ async def update_me(
     "/{user_id}",
     response_model=UserResponse,
     summary="Update user",
+    responses={**CONFLICT},
 )
 async def update_user(
     user_id: UUID,
@@ -202,6 +214,7 @@ async def delete_me(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft delete user",
+    responses={**CONFLICT},
 )
 async def delete_user(
     user_id: UUID,

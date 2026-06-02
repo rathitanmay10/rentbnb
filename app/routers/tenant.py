@@ -8,9 +8,17 @@ from app.dependencies.types import (
     TenantOrSuperAdminDep,
 )
 from app.schemas import TenantCreate, TenantListResponse, TenantResponse, TenantUpdate
+from app.schemas.error import (
+    BAD_REQUEST,
+    CONFLICT,
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.services import tenant_service
 
-router = APIRouter(prefix="/tenants", tags=["Tenants"])
+router = APIRouter(
+    prefix="/tenants", tags=["Tenants"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.post(
@@ -19,6 +27,7 @@ router = APIRouter(prefix="/tenants", tags=["Tenants"])
     status_code=status.HTTP_201_CREATED,
     summary="Create a new tenant",
     description="Create a new tenant (SUPER_ADMIN only).",
+    responses={**CONFLICT},
 )
 async def create_tenant(
     tenant_data: TenantCreate,
@@ -72,6 +81,7 @@ async def get_tenant(
     response_model=TenantResponse,
     summary="Update tenant",
     description="Update a tenant's name or status (SUPER_ADMIN only).",
+    responses={**CONFLICT},
 )
 async def update_tenant(
     tenant_id: UUID,
@@ -93,6 +103,7 @@ async def update_tenant(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft delete tenant",
     description="Soft delete a tenant and all associated users (SUPER_ADMIN only).",
+    responses={**BAD_REQUEST},
 )
 async def delete_tenant(
     tenant_id: UUID,

@@ -9,9 +9,15 @@ from app.schemas.amenity import (
     AmenityResponse,
     AmenityUpdate,
 )
+from app.schemas.error import (
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.services import amenity_service
 
-router = APIRouter(prefix="/amenities", tags=["Amenities"])
+router = APIRouter(
+    prefix="/amenities", tags=["Amenities"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.get("/", response_model=AmenityListResponse)

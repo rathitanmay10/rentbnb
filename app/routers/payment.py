@@ -5,11 +5,19 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
 from app.dependencies.types import DbDep, TenantUserDep
+from app.schemas.error import (
+    BAD_REQUEST,
+    FORBIDDEN,
+    INTERNAL_SERVER_ERROR,
+    NOT_FOUND,
+)
 from app.schemas.payment import PaymentListResponse
 from app.services import payment_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/payments", tags=["Payments"])
+router = APIRouter(
+    prefix="/payments", tags=["Payments"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.post("/callback/")
@@ -34,7 +42,7 @@ async def payment_callback(request: Request) -> RedirectResponse:
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
-@router.post("/webhook/")
+@router.post("/webhook/", responses={**BAD_REQUEST, **INTERNAL_SERVER_ERROR})
 async def webhook(request: Request, db: DbDep) -> dict:
     """
     Handle Razorpay webhook events.

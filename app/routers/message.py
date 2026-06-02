@@ -3,10 +3,16 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.dependencies.types import DbDep, TenantUserDep
+from app.schemas.error import (
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.schemas.message import MessageCreate, MessageListResponse, MessageResponse
 from app.services import message_service
 
-router = APIRouter(prefix="/bookings", tags=["Messages"])
+router = APIRouter(
+    prefix="/bookings", tags=["Messages"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.get("/{booking_id}/messages", response_model=MessageListResponse)

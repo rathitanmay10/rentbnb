@@ -20,13 +20,18 @@ from app.schemas.auth import (
     VerifyEmailSchema,
     VerifyLoginSchema,
 )
+from app.schemas.error import BAD_REQUEST, FORBIDDEN, NOT_FOUND, TOO_MANY, UNAUTHORIZED
 from app.schemas.response import MessageResponse
 from app.services import auth_service
 
 ALGO = settings.ALGORITHM
 SECRET = settings.SECRET_KEY
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"],
+    responses={**UNAUTHORIZED, **TOO_MANY, **BAD_REQUEST},
+)
 
 # Rate limit applied to the public/credential endpoints only — not to
 # refresh, change-password, or logout (which were never rate limited).
@@ -41,6 +46,7 @@ auth_rate_limit = Depends(
     response_model=MessageResponse,
     summary="Register a new user",
     dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN},
 )
 async def register(
     register_data: RegisterSchema,
@@ -66,6 +72,7 @@ async def register(
     response_model=MessageResponse,
     summary="Verify user email",
     dependencies=[auth_rate_limit],
+    responses={**NOT_FOUND},
 )
 async def verify_email(
     verify_data: VerifyEmailSchema,
@@ -106,6 +113,7 @@ async def resend_verify(
     response_model=TokenResponse,
     summary="Login with Password",
     dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN, **NOT_FOUND},
 )
 async def login_password(
     login_data: LoginSchema,
@@ -123,6 +131,7 @@ async def login_password(
     response_model=MessageResponse,
     summary="Login step 1: Send OTP (Passwordless)",
     dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN, **NOT_FOUND},
 )
 async def login_otp_init(
     login_data: EmailOnlySchema,
@@ -143,6 +152,7 @@ async def login_otp_init(
     response_model=TokenResponse,
     summary="Login step 2: Verify OTP (Passwordless)",
     dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN, **NOT_FOUND},
 )
 async def login_otp_verify(
     verify_data: VerifyLoginSchema,
@@ -202,6 +212,7 @@ async def change_password(
     response_model=MessageResponse,
     summary="Request password reset",
     dependencies=[auth_rate_limit],
+    responses={**NOT_FOUND},
 )
 async def forgot_password(
     data: ForgotPasswordSchema,
@@ -224,6 +235,7 @@ async def forgot_password(
     response_model=MessageResponse,
     summary="Reset password",
     dependencies=[auth_rate_limit],
+    responses={**NOT_FOUND},
 )
 async def reset_password(
     data: ResetPasswordSchema,

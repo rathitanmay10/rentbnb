@@ -15,6 +15,11 @@ from app.dependencies.rate_limit import RateLimiter
 from app.dependencies.types import DbDep, TenantIdDep, TenantUserDep
 from app.enums import PropertyCategory, UserRole
 from app.models.user import User
+from app.schemas.error import (
+    BAD_REQUEST,
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.schemas.property import (
     AvailabilityResponse,
     PropertyCreate,
@@ -26,7 +31,9 @@ from app.schemas.property_image import PropertyImageCreateResponse
 from app.services import property_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/properties", tags=["Properties"])
+router = APIRouter(
+    prefix="/properties", tags=["Properties"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 PropertyManagerDep = Annotated[
     User, Depends(require_roles(UserRole.TENANT_ADMIN, UserRole.MANAGER))
@@ -62,7 +69,7 @@ async def list_own_properties(
     return {"total": total, "skip": skip, "limit": limit, "data": properties}
 
 
-@router.get("/", response_model=PropertyListResponse)
+@router.get("/", response_model=PropertyListResponse, responses={**BAD_REQUEST})
 async def list_properties(
     db: DbDep,
     tenant_id: TenantIdDep,
@@ -117,7 +124,11 @@ async def update_property(
     return result
 
 
-@router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{property_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={**BAD_REQUEST},
+)
 async def delete_property(
     property_id: UUID,
     user: PropertyManagerDep,
@@ -127,7 +138,11 @@ async def delete_property(
     logger.info(f"Property deleted: {property_id} by user {user.id}")
 
 
-@router.post("/{property_id}/images", response_model=PropertyImageCreateResponse)
+@router.post(
+    "/{property_id}/images",
+    response_model=PropertyImageCreateResponse,
+    responses={**BAD_REQUEST},
+)
 async def upload_image(
     property_id: UUID,
     user: PropertyManagerDep,

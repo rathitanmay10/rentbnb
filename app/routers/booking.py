@@ -13,14 +13,24 @@ from app.schemas.booking import (
     BookingResponse,
     BookingWithPaymentResponse,
 )
+from app.schemas.error import (
+    CONFLICT,
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.services import booking_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/bookings", tags=["Bookings"])
+router = APIRouter(
+    prefix="/bookings", tags=["Bookings"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.post(
-    "/", response_model=BookingCreateResponse, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=BookingCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={**CONFLICT},
 )
 async def create_booking(
     booking_data: BookingCreate,
