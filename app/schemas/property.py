@@ -18,7 +18,7 @@ class PropertyBase(BaseModel):
     country: str = Field(max_length=100)
     zipcode: str | None = Field(None, max_length=20)
     latitude: Decimal = Field(ge=-90, le=90)
-    longitude: Decimal = Field(ge=-180)
+    longitude: Decimal = Field(ge=-180, le=180)
     category: PropertyCategory
     bedrooms: int = Field(ge=1)
     max_guests: int = Field(ge=1)
