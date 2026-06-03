@@ -210,6 +210,8 @@ async def get_booking_for_user(db: AsyncSession, booking_id: UUID, current_user:
         raise NotFoundError("Booking not found")
     if current_user.role == UserRole.GUEST and booking.guest_id != current_user.id:
         raise NotFoundError("Booking not found")
+    if current_user.role == UserRole.MANAGER and booking.property_manager_id != current_user.id:
+        raise NotFoundError("Booking not found")
     return booking
 
 
