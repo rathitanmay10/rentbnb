@@ -67,6 +67,8 @@ async def check_availability(
     user: User,
 ) -> bool:
     """Check whether a property is available for the given date range."""
+    if check_out <= check_in:
+        raise BadRequestError("check_out must be after check_in")
     prop = await property_crud.get_property(db, property_id)
     if not prop:
         raise NotFoundError("Property not found")
