@@ -173,7 +173,7 @@ async def update_me(
     """
     Update current authenticated user's profile.
     """
-    user = await user_service.update_user(db, current_user.id, user_data)
+    user = await user_service.update_user(db, current_user.id, user_data, current_user)
     return user
 
 

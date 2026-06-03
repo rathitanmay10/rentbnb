@@ -27,12 +27,12 @@ async def get_tenant_dashboard(
     """
     Get tenant dashboard metrics.
     """
-    _validate_date_range(from_date, to_date)
     # Default date range: first day of current month to today
     if not from_date:
         from_date = datetime.now(UTC).date().replace(day=1)
     if not to_date:
         to_date = datetime.now(UTC).date()
+    _validate_date_range(from_date, to_date)
 
     # Convert dates to datetime for comparison with created_at
     from_datetime = datetime.combine(from_date, datetime.min.time())
@@ -95,12 +95,12 @@ async def get_platform_dashboard(
     """
     Get platform dashboard metrics.
     """
-    _validate_date_range(from_date, to_date)
     # Default date range: first day of current month to today
     if not from_date:
         from_date = datetime.now(UTC).date().replace(day=1)
     if not to_date:
         to_date = datetime.now(UTC).date()
+    _validate_date_range(from_date, to_date)
 
     # Convert dates to datetime for comparison
     from_datetime = datetime.combine(from_date, datetime.min.time())

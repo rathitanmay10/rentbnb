@@ -100,6 +100,8 @@ async def create_property(db: AsyncSession, user: User, data: PropertyCreate) ->
                 raise NotFoundError("Manager not found")
             if manager.tenant_id != user.tenant_id:
                 raise ForbiddenError("Manager does not belong to the same tenant")
+            if manager.role not in [UserRole.MANAGER, UserRole.TENANT_ADMIN]:
+                raise ForbiddenError("Target user does not have a manager role")
 
     property_data["managed_by"] = target_manager_id
 
@@ -147,6 +149,8 @@ async def update_property(
             raise NotFoundError("Manager not found")
         if new_manager.tenant_id != user.tenant_id:
             raise NotFoundError("Manager not found")
+        if new_manager.role not in [UserRole.MANAGER, UserRole.TENANT_ADMIN]:
+            raise ForbiddenError("Target user does not have a manager role")
 
     return await property_crud.update_property(db, prop, data)
 

@@ -173,6 +173,7 @@ async def delete_property_image(
     "/{property_id}/check_availability",
     response_model=AvailabilityResponse,
     status_code=status.HTTP_200_OK,
+    responses={**BAD_REQUEST},
 )
 async def check_property_availability(
     property_id: UUID,

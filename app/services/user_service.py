@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,7 +131,10 @@ async def update_user(
         if not target_user or target_user.is_deleted:
             raise NotFoundError("User not found")
         if current_user.role == UserRole.TENANT_ADMIN:
-            verify_tenant_admin_management(current_user, target_user)
+            try:
+                verify_tenant_admin_management(current_user, target_user)
+            except HTTPException as exc:
+                raise ForbiddenError(exc.detail) from exc
 
     updates = user_data.model_dump(exclude_unset=True)
 
@@ -168,7 +172,10 @@ async def delete_user(
         if target_user.id == current_user.id:
             raise ForbiddenError("You cannot delete yourself")
         if current_user.role == UserRole.TENANT_ADMIN:
-            verify_tenant_admin_management(current_user, target_user)
+            try:
+                verify_tenant_admin_management(current_user, target_user)
+            except HTTPException as exc:
+                raise ForbiddenError(exc.detail) from exc
 
     if target_user.role == UserRole.SUPER_ADMIN:
         raise ForbiddenError("Super admin cannot be deleted")

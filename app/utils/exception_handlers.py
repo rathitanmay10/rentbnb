@@ -45,7 +45,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     fields = []
     for error in exc.errors():
-        field = ".".join(str(x) for x in error["loc"] if x != "body")
+        field = ".".join(str(x) for x in error["loc"] if x != "body") or "body"
         msg = error["msg"]
         fields.append({"field": field, "message": msg})
 

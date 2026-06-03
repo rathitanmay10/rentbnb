@@ -6,7 +6,7 @@ from app.utils.validators import validate_amenity_name
 
 
 class AmenityCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
+    name: str = Field(min_length=2, max_length=255)
 
     @field_validator("name")
     def validate_name(cls, v: str) -> str:
@@ -14,7 +14,7 @@ class AmenityCreate(BaseModel):
 
 
 class AmenityUpdate(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
+    name: str = Field(min_length=2, max_length=255)
 
     @field_validator("name")
     def validate_name(cls, v: str) -> str:

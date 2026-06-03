@@ -54,7 +54,7 @@ async def verify_payment_signature(
             }
         )
         return True
-    except Exception:
+    except BadRequestError:
         return False
 
 

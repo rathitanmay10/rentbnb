@@ -72,9 +72,14 @@ async def create_booking(
     await db.refresh(booking)
 
     # Create Razorpay order (External API Call - NO LOCK HELD)
-    order = await payment_service.create_razorpay_order(
-        db, booking.id, int(total_amount * 100)
-    )
+    try:
+        order = await payment_service.create_razorpay_order(
+            db, booking.id, int(total_amount * 100)
+        )
+    except Exception:
+        booking.status = BookingStatus.FAILED
+        await db.commit()
+        raise
 
     # Create payment record
     payment = await payment_crud.create_payment(

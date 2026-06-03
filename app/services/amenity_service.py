@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import amenity_crud
@@ -14,7 +15,10 @@ async def list_amenities(db: AsyncSession) -> list[Amenity]:
 async def create_amenity(db: AsyncSession, name: str) -> Amenity:
     if await amenity_crud.get_amenity_by_name(db, name):
         raise ConflictError("Amenity already exists")
-    return await amenity_crud.create_amenity(db, name)
+    try:
+        return await amenity_crud.create_amenity(db, name)
+    except IntegrityError:
+        raise ConflictError("Amenity already exists")
 
 
 async def get_amenity(db: AsyncSession, amenity_id: UUID) -> Amenity:
@@ -30,7 +34,10 @@ async def update_amenity(db: AsyncSession, amenity_id: UUID, name: str) -> Ameni
     existing = await amenity_crud.get_amenity_by_name(db, name)
     if existing and existing.id != amenity_id:
         raise ConflictError("Amenity already exists")
-    return await amenity_crud.update_amenity(db, amenity_id, name)
+    try:
+        return await amenity_crud.update_amenity(db, amenity_id, name)
+    except IntegrityError:
+        raise ConflictError("Amenity already exists")
 
 
 async def delete_amenity(db: AsyncSession, amenity_id: UUID) -> None:

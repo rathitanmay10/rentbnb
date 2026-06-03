@@ -291,7 +291,12 @@ async def forgot_password(
             raise TooManyRequestsError("Wait before resending.")
     user = await user_service.get_user_by_email(db, email, tenant_id)
     if not user:
-        # Don't reveal user existence
+        # Throttle unknown emails the same as real ones to prevent enumeration
+        await redis_client.set(
+            reset_email_key,
+            "unknown",
+            expire=RESET_PASSWORD_TTL,
+        )
         return {"message": "If email exists, a reset link has been sent"}
 
     token = secrets.token_urlsafe(32)

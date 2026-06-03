@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from jose import JWTError, jwt
 
 from app.constants.rate_limit import AUTH_LIMIT_SECONDS, AUTH_LIMIT_TIMES
@@ -21,6 +21,7 @@ from app.schemas.auth import (
     VerifyEmailSchema,
     VerifyLoginSchema,
 )
+from app.exceptions import BadRequestError
 from app.schemas.error import BAD_REQUEST, FORBIDDEN, NOT_FOUND, TOO_MANY, UNAUTHORIZED
 from app.schemas.response import MessageResponse
 from app.services import auth_service
@@ -282,9 +283,7 @@ async def logout(
         exp = payload.get("exp")
         expires_at = datetime.fromtimestamp(exp, tz=UTC)
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token"
-        )
+        raise BadRequestError("Invalid refresh token")
 
     await auth_service.logout(db, current_user, jti, expires_at)
     logger.info(f"User {current_user.id} logged out")

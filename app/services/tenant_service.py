@@ -72,7 +72,7 @@ async def update_tenant(
         existing_tenant = await tenant_crud.get_tenant_by_name_ci(
             db, tenant_data.name.lower()
         )
-        if existing_tenant:
+        if existing_tenant and existing_tenant.id != tenant_id:
             raise ConflictError("Tenant with this name already exists")
     try:
         tenant = await tenant_crud.update_tenant(db, tenant_id, **updates)
