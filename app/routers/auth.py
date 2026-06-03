@@ -1,6 +1,7 @@
 import logging
 from datetime import UTC, datetime
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from jose import JWTError, jwt
 
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
-    responses={**UNAUTHORIZED, **TOO_MANY, **BAD_REQUEST},
+    responses={**UNAUTHORIZED, **BAD_REQUEST},
 )
 
 # Rate limit applied to the public/credential endpoints only — not to
@@ -46,7 +47,7 @@ auth_rate_limit = Depends(
     response_model=MessageResponse,
     summary="Register a new user",
     dependencies=[auth_rate_limit],
-    responses={**FORBIDDEN},
+    responses={**FORBIDDEN, **TOO_MANY},
 )
 async def register(
     register_data: RegisterSchema,
@@ -72,7 +73,7 @@ async def register(
     response_model=MessageResponse,
     summary="Verify user email",
     dependencies=[auth_rate_limit],
-    responses={**NOT_FOUND},
+    responses={**NOT_FOUND, **TOO_MANY},
 )
 async def verify_email(
     verify_data: VerifyEmailSchema,
@@ -92,6 +93,7 @@ async def verify_email(
     response_model=MessageResponse,
     summary="Resend Verification Mail",
     dependencies=[auth_rate_limit],
+    responses={**TOO_MANY},
 )
 async def resend_verify(
     resend_email: EmailOnlySchema,
@@ -113,7 +115,7 @@ async def resend_verify(
     response_model=TokenResponse,
     summary="Login with Password",
     dependencies=[auth_rate_limit],
-    responses={**FORBIDDEN, **NOT_FOUND},
+    responses={**FORBIDDEN, **NOT_FOUND, **TOO_MANY},
 )
 async def login_password(
     login_data: LoginSchema,
@@ -131,7 +133,7 @@ async def login_password(
     response_model=MessageResponse,
     summary="Login step 1: Send OTP (Passwordless)",
     dependencies=[auth_rate_limit],
-    responses={**FORBIDDEN, **NOT_FOUND},
+    responses={**FORBIDDEN, **NOT_FOUND, **TOO_MANY},
 )
 async def login_otp_init(
     login_data: EmailOnlySchema,
@@ -152,7 +154,7 @@ async def login_otp_init(
     response_model=TokenResponse,
     summary="Login step 2: Verify OTP (Passwordless)",
     dependencies=[auth_rate_limit],
-    responses={**FORBIDDEN, **NOT_FOUND},
+    responses={**FORBIDDEN, **NOT_FOUND, **TOO_MANY},
 )
 async def login_otp_verify(
     verify_data: VerifyLoginSchema,
@@ -212,7 +214,7 @@ async def change_password(
     response_model=MessageResponse,
     summary="Request password reset",
     dependencies=[auth_rate_limit],
-    responses={**NOT_FOUND},
+    responses={**NOT_FOUND, **TOO_MANY},
 )
 async def forgot_password(
     data: ForgotPasswordSchema,
@@ -235,7 +237,7 @@ async def forgot_password(
     response_model=MessageResponse,
     summary="Reset password",
     dependencies=[auth_rate_limit],
-    responses={**NOT_FOUND},
+    responses={**NOT_FOUND, **TOO_MANY},
 )
 async def reset_password(
     data: ResetPasswordSchema,

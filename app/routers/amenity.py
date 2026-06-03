@@ -10,13 +10,14 @@ from app.schemas.amenity import (
     AmenityUpdate,
 )
 from app.schemas.error import (
+    CONFLICT,
     FORBIDDEN,
     NOT_FOUND,
 )
 from app.services import amenity_service
 
 router = APIRouter(
-    prefix="/amenities", tags=["Amenities"], responses={**NOT_FOUND, **FORBIDDEN}
+    prefix="/amenities", tags=["Amenities"], responses={**NOT_FOUND, **FORBIDDEN, **CONFLICT}
 )
 
 
