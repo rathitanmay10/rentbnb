@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import booking_crud, user_crud
@@ -9,6 +10,7 @@ from app.enums import UserRole
 from app.exceptions import BadRequestError, ConflictError, ForbiddenError, NotFoundError
 from app.models import User
 from app.schemas import UserCreate, UserSelfUpdate, UserUpdate
+from app.utils.db_errors import extract_pg_error
 from app.utils.password import hash_password
 
 
@@ -63,9 +65,18 @@ async def create_user(
     user_dict["username"] = user_dict["username"].lower()
     user_dict["email"] = user_dict["email"].lower()
 
-    user = await user_crud.create_user(db, user_dict)
-    await db.commit()
-    return user
+    try:
+        user = await user_crud.create_user(db, user_dict)
+        await db.commit()
+        return user
+    except IntegrityError as e:
+        await db.rollback()
+        error_msg = extract_pg_error(e).lower()
+        if "email" in error_msg:
+            raise ConflictError("Email already registered")
+        if "username" in error_msg:
+            raise ConflictError("Username already taken")
+        raise
 
 
 async def get_user(db: AsyncSession, user_id: UUID) -> User | None:
@@ -123,11 +134,20 @@ async def update_user(
 
     updates = user_data.model_dump(exclude_unset=True)
 
-    user = await user_crud.update_user(db, user_id, **updates)
-    if current_user is not None and not user:
-        raise NotFoundError("User not found")
-    await db.commit()
-    return user
+    try:
+        user = await user_crud.update_user(db, user_id, **updates)
+        if current_user is not None and not user:
+            raise NotFoundError("User not found")
+        await db.commit()
+        return user
+    except IntegrityError as e:
+        await db.rollback()
+        error_msg = extract_pg_error(e).lower()
+        if "email" in error_msg:
+            raise ConflictError("Email already registered")
+        if "username" in error_msg:
+            raise ConflictError("Username already taken")
+        raise
 
 
 async def delete_user(
