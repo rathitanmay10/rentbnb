@@ -118,16 +118,17 @@ async def resend_verification_email(
     background_tasks: BackgroundTasks,
     tenant_id: UUID | None,
 ):
+    email = data.email.strip().lower()
     tenant_prefix = get_tenant_prefix(tenant_id)
     verification_key = (
-        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=data.email)}"
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=email)}"
     )
     ttl = await redis_client.ttl(verification_key)
     if ttl > 0:
         elapsed = EMAIL_VERIFY_TTL - ttl
         if elapsed < RESEND_WAIT_SECONDS:
             raise TooManyRequestsError("Wait before resending.")
-    user = await user_service.get_user_by_email(db, data.email, tenant_id)
+    user = await user_service.get_user_by_email(db, email, tenant_id)
 
     if not user:
         return {"message": "If email exists, a verification link has been sent."}
@@ -195,7 +196,8 @@ async def login_password(
     Standard login with Email and Password.
     Returns Access and Refresh tokens.
     """
-    user = await user_service.get_user_by_email(db, login_data.email, tenant_id)
+    email = login_data.email.strip().lower()
+    user = await user_service.get_user_by_email(db, email, tenant_id)
 
     if not user:
         raise UnauthorizedError(AUTH_INVALID_CREDENTIALS)
@@ -231,6 +233,7 @@ async def login_otp_init(
     """
     Step 1 of Passwordless Login: Check user exists and send OTP.
     """
+    email = email.strip().lower()
     user = await user_service.get_user_by_email(db, email, tenant_id)
     if not user:
         return {"message": OTP_SENT}
@@ -248,9 +251,10 @@ async def login_otp_verify(
     """
     Step 2 of Passwordless Login: Verify OTP and issue tokens.
     """
-    await OTPHandler.verify_otp(verify_data.email, verify_data.otp, tenant_id)
+    email = verify_data.email.strip().lower()
+    await OTPHandler.verify_otp(email, verify_data.otp, tenant_id)
 
-    user = await user_service.get_user_by_email(db, verify_data.email, tenant_id)
+    user = await user_service.get_user_by_email(db, email, tenant_id)
     if not user:
         raise NotFoundError("User not found")
 
@@ -277,21 +281,22 @@ async def forgot_password(
     tenant_id: UUID | None,
 ) -> dict:
     """Generate password reset token and send email."""
+    email = data.email.strip().lower()
     tenant_prefix = get_tenant_prefix(tenant_id)
-    reset_email_key = f"{tenant_prefix}{REDIS_RESET_EMAIL.format(email=data.email)}"
+    reset_email_key = f"{tenant_prefix}{REDIS_RESET_EMAIL.format(email=email)}"
     ttl = await redis_client.ttl(reset_email_key)
     if ttl > 0:
         elapsed = RESET_PASSWORD_TTL - ttl
         if elapsed < RESEND_WAIT_SECONDS:
             raise TooManyRequestsError("Wait before resending.")
-    user = await user_service.get_user_by_email(db, data.email, tenant_id)
+    user = await user_service.get_user_by_email(db, email, tenant_id)
     if not user:
         # Don't reveal user existence
         return {"message": "If email exists, a reset link has been sent"}
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
-        f"{tenant_prefix}{REDIS_RESET_EMAIL.format(email=data.email)}",
+        f"{tenant_prefix}{REDIS_RESET_EMAIL.format(email=email)}",
         str(user.id),
         expire=RESET_PASSWORD_TTL,
     )
