@@ -65,8 +65,9 @@ async def create_user(
     user_service.authorize_user_creation(current_user, user_data)
 
     tenant_prefix = get_tenant_prefix(user_data.tenant_id)
+    normalized_email = user_data.email.strip().lower()
     verification_key = (
-        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=user_data.email)}"
+        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=normalized_email)}"
     )
     if await redis_client.get(verification_key) is not None:
         raise TooManyRequestsError("Verification email already sent. Please wait.")
