@@ -85,10 +85,7 @@ async def register_user(
         role=UserRole.GUEST,
     )
 
-    try:
-        user = await user_service.create_user(db, user_data, tenant_id)
-    except ValueError as e:
-        raise BadRequestError(str(e))
+    user = await user_service.create_user(db, user_data, tenant_id)
 
     token = secrets.token_urlsafe(32)
     await redis_client.set(
