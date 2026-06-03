@@ -17,7 +17,9 @@ from app.schemas.error import (
 from app.services import amenity_service
 
 router = APIRouter(
-    prefix="/amenities", tags=["Amenities"], responses={**NOT_FOUND, **FORBIDDEN, **CONFLICT}
+    prefix="/amenities",
+    tags=["Amenities"],
+    responses={**NOT_FOUND, **FORBIDDEN, **CONFLICT},
 )
 
 
