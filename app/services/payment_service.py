@@ -97,7 +97,7 @@ async def process_webhook(
         )
     except Exception as e:
         logger.error(f"Signature verification failed: {type(e).__name__}: {e}")
-        raise BadRequestError("Invalid webhook signature")
+        raise BadRequestError("Invalid webhook signature") from e
 
     event_type = payload.get("event")
 
@@ -201,8 +201,6 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
         )
         await process_refund(db, payment.id)
 
-    await db.commit()
-
 
 async def _handle_payment_failed(db: AsyncSession, payload: dict):
     payment_entity = payload["payload"]["payment"]["entity"]
@@ -233,8 +231,6 @@ async def _handle_payment_failed(db: AsyncSession, payload: dict):
                     subject = "Payment Failed"
                     body = f"Your payment for booking {booking.id} has failed."
                     send_email_task.delay(email, subject, body)
-
-    await db.commit()
 
 
 async def process_refund(db: AsyncSession, payment_id: UUID):
