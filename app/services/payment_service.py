@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.payment import DEFAULT_CURRENCY
@@ -108,17 +109,27 @@ async def process_webhook(
             return {"status": "ignored", "reason": "already_processed"}
         logger.info(f"Retrying processing for existing webhook {event_id}")
     else:
-        webhook = await webhook_crud.create_webhook(
-            db,
-            {
-                "event_type": event_type,
-                "payload": payload,
-                "razorpay_event_id": event_id,
-                "processed": False,
-                "tenant_id": None,
-            },
-        )
-        await db.commit()
+        try:
+            webhook = await webhook_crud.create_webhook(
+                db,
+                {
+                    "event_type": event_type,
+                    "payload": payload,
+                    "razorpay_event_id": event_id,
+                    "processed": False,
+                    "tenant_id": None,
+                },
+            )
+            await db.commit()
+        except IntegrityError:
+            # Concurrent delivery of the same event raced us to the unique
+            # razorpay_event_id. Roll back and let the worker that won the
+            # insert own this event; the payment row lock below would make a
+            # double-process idempotent anyway.
+            await db.rollback()
+            webhook = await webhook_crud.get_webhook_by_event_id(db, event_id)
+            if not webhook or webhook.processed:
+                return {"status": "ignored", "reason": "already_processed"}
 
     if event_type == WebhookEvents.PAYMENT_CAPTURED:
         await _handle_payment_captured(db, payload)
@@ -141,17 +152,24 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
     payment_entity = payload["payload"]["payment"]["entity"]
     order_id = payment_entity["order_id"]
     payment_id = payment_entity["id"]
-    amount = payment_entity["amount"] / 100
+    amount_paise = payment_entity["amount"]
 
-    payment = await payment_crud.get_payment_by_order_id(db, order_id)
+    # Lock the payment row so the reconciliation poller cannot confirm the same
+    # payment concurrently (which would send duplicate confirmation emails).
+    payment = await payment_crud.get_payment_by_order_id_for_update(db, order_id)
     if not payment:
+        return
+
+    # Idempotency: only a PENDING payment is actionable. A retried webhook (or a
+    # poller that already won the lock) finds a non-PENDING status and exits.
+    if payment.status != PaymentStatus.PENDING:
         return
 
     booking = await booking_crud.get_booking(db, payment.booking_id)
     if not booking:
         return
 
-    if float(payment.amount) != float(amount):
+    if int(payment.amount * 100) != amount_paise:
         await payment_crud.update_payment(
             db, payment.id, status=PaymentStatus.FAILED, razorpay_payment_id=payment_id
         )
@@ -267,7 +285,9 @@ async def _handle_refund_processed(db: AsyncSession, payload: dict):
 
 async def check_payment_status(db: AsyncSession, payment_id: UUID):
     """Check payment status via Razorpay API (Polling)."""
-    payment = await payment_crud.get_payment(db, payment_id)
+    # Lock the payment row so a concurrent webhook cannot confirm the same
+    # payment in parallel (duplicate booking-confirm emails/notifications).
+    payment = await payment_crud.get_payment_for_update(db, payment_id)
     if not payment:
         return
 
@@ -280,8 +300,7 @@ async def check_payment_status(db: AsyncSession, payment_id: UUID):
 
         for item in items:
             if item["status"] == RAZORPAY_STATUS_CAPTURED:
-                amount_paid = item["amount"] / 100
-                if amount_paid == float(payment.amount):
+                if item["amount"] == int(payment.amount * 100):
                     await payment_crud.update_payment(
                         db,
                         payment.id,

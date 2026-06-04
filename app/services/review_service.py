@@ -15,6 +15,26 @@ from app.schemas.review import (
 )
 
 
+async def _refresh_property_rating(
+    db: AsyncSession, property_id: UUID, tenant_id: UUID
+) -> None:
+    """Recompute a property's rating/review_count from the reviews table.
+
+    Locks the property row first so concurrent review mutations serialize and
+    cannot lose an update; the aggregate is recomputed from source (no drift).
+    """
+    property_obj = await property_crud.get_property_with_lock(
+        db, property_id, tenant_id
+    )
+    if property_obj is None:
+        return
+    avg_rating, review_count = await review_crud.get_property_rating_stats(
+        db, property_id, tenant_id
+    )
+    property_obj.rating = avg_rating
+    property_obj.review_count = review_count
+
+
 async def create_review(
     db: AsyncSession, review: ReviewCreate, booking_id: UUID, current_user: User
 ) -> ReviewResponse:
@@ -41,11 +61,7 @@ async def create_review(
         tenant_id=current_user.tenant_id,
     )
 
-    property_obj = await property_crud.get_property(db, review_obj.property_id)
-    property_obj.rating = (
-        property_obj.rating * property_obj.review_count + review.rating
-    ) / (property_obj.review_count + 1)
-    property_obj.review_count += 1
+    await _refresh_property_rating(db, review_obj.property_id, current_user.tenant_id)
     await db.commit()
     return review_obj
 
@@ -108,16 +124,8 @@ async def update_review(
         raise NotFoundError("Review not found")
     if review_obj.guest_id != current_user.id:
         raise ForbiddenError("You are not authorized to update this review")
-    old_rating = review_obj.rating
     review = await review_crud.update_review(db, review_id, review_update)
-    if review.rating != old_rating:
-        property_obj = await property_crud.get_property(db, review_obj.property_id)
-        if property_obj.review_count > 0:
-            property_obj.rating = (
-                property_obj.rating * property_obj.review_count
-                - old_rating
-                + review.rating
-            ) / (property_obj.review_count)
+    await _refresh_property_rating(db, review_obj.property_id, current_user.tenant_id)
     await db.commit()
     return review
 
@@ -136,14 +144,6 @@ async def delete_review(
     if review_obj.guest_id != current_user.id:
         raise ForbiddenError("You are not authorized to delete this review")
     await review_crud.delete_review(db, review_id)
-    property_obj = await property_crud.get_property(db, review_obj.property_id)
-    if property_obj.review_count > 1:
-        property_obj.rating = (
-            property_obj.rating * property_obj.review_count - review_obj.rating
-        ) / (property_obj.review_count - 1)
-        property_obj.review_count -= 1
-    else:
-        property_obj.rating = 0
-        property_obj.review_count = 0
+    await _refresh_property_rating(db, review_obj.property_id, current_user.tenant_id)
     await db.commit()
     return None

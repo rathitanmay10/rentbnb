@@ -37,6 +37,7 @@ async def create_user_message(
             "tenant_id": booking.tenant_id,
         },
     )
+    await db.commit()
 
     # Broadcast
     await manager.broadcast(
@@ -69,6 +70,7 @@ async def create_system_notification(
             "tenant_id": tenant_id,
         },
     )
+    await db.commit()
 
     # Broadcast
     await manager.broadcast(

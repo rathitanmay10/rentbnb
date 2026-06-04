@@ -105,7 +105,9 @@ async def create_property(db: AsyncSession, user: User, data: PropertyCreate) ->
 
     property_data["managed_by"] = target_manager_id
 
-    return await property_crud.create_property(db, property_data)
+    prop = await property_crud.create_property(db, property_data)
+    await db.commit()
+    return prop
 
 
 async def delete_property(db: AsyncSession, user: User, property_id: UUID):
@@ -125,6 +127,7 @@ async def delete_property(db: AsyncSession, user: User, property_id: UUID):
     if booking:
         raise BadRequestError("Property has future bookings, cannot delete")
     await property_crud.delete_property(db, prop)
+    await db.commit()
 
 
 async def update_property(
@@ -152,7 +155,9 @@ async def update_property(
         if new_manager.role not in [UserRole.MANAGER, UserRole.TENANT_ADMIN]:
             raise ForbiddenError("Target user does not have a manager role")
 
-    return await property_crud.update_property(db, prop, data)
+    updated = await property_crud.update_property(db, prop, data)
+    await db.commit()
+    return updated
 
 
 async def upload_property_image(
@@ -190,7 +195,9 @@ async def upload_property_image(
                     raise BadRequestError("File size exceeds limit")
                 await buffer.write(content)
         url = f"/uploads/{property_id}/{new_filename}"
-        return await property_crud.add_property_image(db, property_id, url)
+        image = await property_crud.add_property_image(db, property_id, url)
+        await db.commit()
+        return image
     except Exception:
         if await aiofiles.os.path.exists(file_path):
             await aiofiles.os.remove(file_path)
@@ -217,6 +224,7 @@ async def delete_property_image(
     if await aiofiles.os.path.exists(file_path):
         await aiofiles.os.remove(file_path)
     await property_crud.delete_image(db, image)
+    await db.commit()
 
 
 def can_edit_property(user: User, property_obj) -> bool:

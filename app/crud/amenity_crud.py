@@ -9,7 +9,7 @@ from app.models.amenity import Amenity, PropertyAmenity
 async def create_amenity(db: AsyncSession, name: str) -> Amenity:
     amenity = Amenity(name=name)
     db.add(amenity)
-    await db.commit()
+    await db.flush()
     await db.refresh(amenity)
     return amenity
 
@@ -37,7 +37,7 @@ async def update_amenity(
     if not amenity:
         return None
     amenity.name = name
-    await db.commit()
+    await db.flush()
     await db.refresh(amenity)
     return amenity
 
@@ -54,4 +54,4 @@ async def delete_amenity(db: AsyncSession, amenity_id: UUID) -> None:
         raise ValueError("Cannot delete amenity that is in use by properties")
 
     amenity.soft_delete()
-    await db.commit()
+    await db.flush()

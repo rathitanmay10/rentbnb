@@ -9,6 +9,7 @@ from app.constants.rate_limit import AUTH_LIMIT_SECONDS, AUTH_LIMIT_TIMES
 from app.core.settings import settings
 from app.dependencies.rate_limit import RateLimiter
 from app.dependencies.types import CurrentUserDep, DbDep, TenantIdDep
+from app.exceptions import BadRequestError
 from app.schemas.auth import (
     ChangePasswordSchema,
     EmailOnlySchema,
@@ -21,7 +22,6 @@ from app.schemas.auth import (
     VerifyEmailSchema,
     VerifyLoginSchema,
 )
-from app.exceptions import BadRequestError
 from app.schemas.error import BAD_REQUEST, FORBIDDEN, NOT_FOUND, TOO_MANY, UNAUTHORIZED
 from app.schemas.response import MessageResponse
 from app.services import auth_service

@@ -74,9 +74,7 @@ async def register_user(
 
     # Scope redis key to tenant
     tenant_prefix = get_tenant_prefix(tenant_id)
-    verification_key = (
-        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=email)}"
-    )
+    verification_key = f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=email)}"
     if await redis_client.get(verification_key) is not None:
         raise TooManyRequestsError("Verification email already sent. Please wait.")
 
@@ -120,9 +118,7 @@ async def resend_verification_email(
 ):
     email = data.email.strip().lower()
     tenant_prefix = get_tenant_prefix(tenant_id)
-    verification_key = (
-        f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=email)}"
-    )
+    verification_key = f"{tenant_prefix}{REDIS_VERIFICATION_EMAIL.format(email=email)}"
     ttl = await redis_client.ttl(verification_key)
     if ttl > 0:
         elapsed = EMAIL_VERIFY_TTL - ttl

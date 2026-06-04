@@ -79,9 +79,12 @@ class OTPHandler:
         if not stored_otp:
             raise BadRequestError(OTP_INVALID)
 
-        # Check attempts
-        attempts = await redis_client.get(attempt_key)
-        if attempts and int(attempts) >= OTP_MAX_ATTEMPTS:
+        # Count this attempt atomically BEFORE comparing. INCR is atomic, so
+        # concurrent verifications get distinct counts and the cap cannot be
+        # bypassed by racing requests (read-then-increment would let N parallel
+        # calls all read a stale count below the limit).
+        attempts = await redis_client.incr(attempt_key)
+        if attempts > OTP_MAX_ATTEMPTS:
             await redis_client.delete(otp_key, attempt_key, cooldown_key)
             raise TooManyRequestsError(OTP_RATE_LIMITED)
 
@@ -90,7 +93,6 @@ class OTPHandler:
 
         # Constant-time comparison
         if not hmac.compare_digest(stored_otp, hashed_input):
-            await redis_client.incr(attempt_key)
             await asyncio.sleep(0.5)
 
             raise BadRequestError(OTP_INVALID)

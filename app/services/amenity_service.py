@@ -16,8 +16,11 @@ async def create_amenity(db: AsyncSession, name: str) -> Amenity:
     if await amenity_crud.get_amenity_by_name(db, name):
         raise ConflictError("Amenity already exists")
     try:
-        return await amenity_crud.create_amenity(db, name)
+        amenity = await amenity_crud.create_amenity(db, name)
+        await db.commit()
+        return amenity
     except IntegrityError:
+        await db.rollback()
         raise ConflictError("Amenity already exists")
 
 
@@ -35,13 +38,17 @@ async def update_amenity(db: AsyncSession, amenity_id: UUID, name: str) -> Ameni
     if existing and existing.id != amenity_id:
         raise ConflictError("Amenity already exists")
     try:
-        return await amenity_crud.update_amenity(db, amenity_id, name)
+        amenity = await amenity_crud.update_amenity(db, amenity_id, name)
+        await db.commit()
+        return amenity
     except IntegrityError:
+        await db.rollback()
         raise ConflictError("Amenity already exists")
 
 
 async def delete_amenity(db: AsyncSession, amenity_id: UUID) -> None:
     try:
         await amenity_crud.delete_amenity(db, amenity_id)
+        await db.commit()
     except ValueError as e:
         raise BadRequestError(str(e)) from e

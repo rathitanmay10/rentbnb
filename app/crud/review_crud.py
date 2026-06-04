@@ -17,6 +17,24 @@ async def get_review_by_id(db: AsyncSession, review_id: UUID) -> ReviewResponse 
     return result.scalar_one_or_none()
 
 
+async def get_property_rating_stats(
+    db: AsyncSession, property_id: UUID, tenant_id: UUID
+) -> tuple[float, int]:
+    """Recompute (avg_rating, review_count) for a property from the reviews table.
+
+    Computed from source rather than incrementally so the aggregate cannot drift
+    and concurrent reviews cannot lose an update.
+    """
+    result = await db.execute(
+        select(func.avg(Review.rating), func.count(Review.id)).where(
+            Review.property_id == property_id,
+            Review.tenant_id == tenant_id,
+        )
+    )
+    avg_rating, count = result.one()
+    return (float(avg_rating) if avg_rating is not None else 0.0, count or 0)
+
+
 async def get_reviews_by_property_id(
     db: AsyncSession,
     tenant_id: UUID,

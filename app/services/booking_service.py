@@ -223,6 +223,18 @@ async def get_booking_for_user(db: AsyncSession, booking_id: UUID, current_user:
     return booking
 
 
+async def sweep_expired_pending_bookings(db: AsyncSession) -> int:
+    """Expire every pending booking past its expiry.
+
+    Safety net for the per-booking eta expiry task: reclaims availability held by
+    bookings whose expiry task was lost or never scheduled. Returns the count swept.
+    """
+    bookings = await booking_crud.get_expired_pending_bookings(db)
+    for booking in bookings:
+        await expire_booking(booking.id, db)
+    return len(bookings)
+
+
 async def expire_booking(booking_id: UUID, db: AsyncSession):
     """Expire booking."""
     booking = await booking_crud.get_booking(db, booking_id)
