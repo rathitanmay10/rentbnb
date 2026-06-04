@@ -1,16 +1,19 @@
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 import aiofiles
 import aiofiles.os
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.property import MAX_IMAGE_SIZE
 from app.crud import booking_crud, property_crud, user_crud
-from app.enums import UserRole
+from app.dependencies.tenant import verify_tenant_property_access
+from app.enums import PropertyCategory, UserRole
+from app.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models.property import Property
 from app.models.user import User
 from app.schemas.property import PropertyCreate, PropertyUpdate
@@ -20,13 +23,64 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
+async def list_own_properties(db: AsyncSession, user: User, skip: int, limit: int):
+    """List properties for internal users (Tenant Admin, Manager)."""
+    return await property_crud.get_properties_for_user(db, user, skip, limit)
+
+
+async def list_properties(
+    db: AsyncSession,
+    *,
+    skip: int,
+    limit: int,
+    min_price: Decimal | None,
+    max_price: Decimal | None,
+    category: PropertyCategory | None,
+    city: str | None,
+    guests: int | None,
+    tenant_id: UUID | None,
+):
+    """List public properties for a tenant."""
+    if tenant_id is None:
+        raise BadRequestError("Tenant ID is required")
+    return await property_crud.get_properties(
+        db, skip, limit, min_price, max_price, category, city, guests, tenant_id
+    )
+
+
+async def get_property_for_user(
+    db: AsyncSession, property_id: UUID, user: User
+) -> Property:
+    """Fetch a property and verify tenant access."""
+    prop = await property_crud.get_property(db, property_id)
+    if not prop:
+        raise NotFoundError("Property not found")
+    verify_tenant_property_access(user, prop)
+    return prop
+
+
+async def check_availability(
+    db: AsyncSession,
+    property_id: UUID,
+    check_in: date,
+    check_out: date,
+    user: User,
+) -> bool:
+    """Check whether a property is available for the given date range."""
+    if check_out <= check_in:
+        raise BadRequestError("check_out must be after check_in")
+    prop = await property_crud.get_property(db, property_id)
+    if not prop:
+        raise NotFoundError("Property not found")
+    verify_tenant_property_access(user, prop)
+    booked = await booking_crud.check_availability(db, prop.id, check_in, check_out)
+    return not booked
+
+
 async def create_property(db: AsyncSession, user: User, data: PropertyCreate) -> dict:
     """Create a new property."""
     if user.role not in [UserRole.TENANT_ADMIN, UserRole.MANAGER]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to create properties",
-        )
+        raise ForbiddenError("Not authorized to create properties")
 
     property_data = data.model_dump(exclude={"manager_id"})
 
@@ -43,32 +97,26 @@ async def create_property(db: AsyncSession, user: User, data: PropertyCreate) ->
         if target_manager_id != user.id:
             manager = await user_crud.get_user(db, target_manager_id)
             if not manager:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found"
-                )
+                raise NotFoundError("Manager not found")
             if manager.tenant_id != user.tenant_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Manager does not belong to the same tenant",
-                )
+                raise ForbiddenError("Manager does not belong to the same tenant")
+            if manager.role not in [UserRole.MANAGER, UserRole.TENANT_ADMIN]:
+                raise ForbiddenError("Target user does not have a manager role")
 
     property_data["managed_by"] = target_manager_id
 
-    return await property_crud.create_property(db, property_data)
+    prop = await property_crud.create_property(db, property_data)
+    await db.commit()
+    return prop
 
 
 async def delete_property(db: AsyncSession, user: User, property_id: UUID):
     """Delete a property."""
     prop = await property_crud.get_property(db, property_id)
     if not prop:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
-        )
+        raise NotFoundError("Property not found")
     if not can_edit_property(user, prop):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this property",
-        )
+        raise ForbiddenError("Not authorized to delete this property")
     booking = await booking_crud.get_bookings(
         db,
         tenant_id=user.tenant_id,
@@ -77,11 +125,9 @@ async def delete_property(db: AsyncSession, user: User, property_id: UUID):
         active=True,
     )
     if booking:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Property has future bookings, cannot delete",
-        )
+        raise BadRequestError("Property has future bookings, cannot delete")
     await property_crud.delete_property(db, prop)
+    await db.commit()
 
 
 async def update_property(
@@ -90,36 +136,28 @@ async def update_property(
     """Update a property."""
     prop = await property_crud.get_property(db, property_id)
     if not prop:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
-        )
+        raise NotFoundError("Property not found")
 
     if not can_edit_property(user, prop):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to edit this property",
-        )
+        raise ForbiddenError("Not authorized to edit this property")
 
     # Check if managed_by is being updated
     if data.managed_by:
         if user.role != UserRole.TENANT_ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only Tenant Admin can change the property manager",
-            )
+            raise ForbiddenError("Only Tenant Admin can change the property manager")
 
         # Verify new manager exists and belongs to the same tenant
         new_manager = await user_crud.get_user(db, data.managed_by)
         if not new_manager:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found"
-            )
+            raise NotFoundError("Manager not found")
         if new_manager.tenant_id != user.tenant_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found"
-            )
+            raise NotFoundError("Manager not found")
+        if new_manager.role not in [UserRole.MANAGER, UserRole.TENANT_ADMIN]:
+            raise ForbiddenError("Target user does not have a manager role")
 
-    return await property_crud.update_property(db, prop, data)
+    updated = await property_crud.update_property(db, prop, data)
+    await db.commit()
+    return updated
 
 
 async def upload_property_image(
@@ -128,23 +166,16 @@ async def upload_property_image(
     """Upload an image for a property."""
     property_obj = await property_crud.get_property(db, property_id)
     if not property_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
-        )
+        raise NotFoundError("Property not found")
 
     # Auth check
     if not can_edit_property(user, property_obj):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
+        raise ForbiddenError("Not authorized")
 
     # Validate file type
     allowed_types = ["image/jpeg", "image/png"]
     if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file type. Only JPEG and PNG are allowed.",
-        )
+        raise BadRequestError("Invalid file type. Only JPEG and PNG are allowed.")
 
     # Save file
     property_dir = os.path.join(UPLOAD_DIR, str(property_id))
@@ -161,13 +192,12 @@ async def upload_property_image(
             while content := await file.read(64 * 1024):
                 size += len(content)
                 if size > MAX_IMAGE_SIZE:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="File size exceeds limit",
-                    )
+                    raise BadRequestError("File size exceeds limit")
                 await buffer.write(content)
         url = f"/uploads/{property_id}/{new_filename}"
-        return await property_crud.add_property_image(db, property_id, url)
+        image = await property_crud.add_property_image(db, property_id, url)
+        await db.commit()
+        return image
     except Exception:
         if await aiofiles.os.path.exists(file_path):
             await aiofiles.os.remove(file_path)
@@ -182,14 +212,10 @@ async def delete_property_image(
     """Delete an image from a property."""
     image = await property_crud.get_image(db, image_id, property_id)
     if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
-        )
+        raise NotFoundError("Image not found")
 
     if not can_edit_property(user, image.property):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
+        raise ForbiddenError("Not authorized")
 
     filename = image.url.split("/")[-1]
     property_id = str(image.property_id)
@@ -198,6 +224,7 @@ async def delete_property_image(
     if await aiofiles.os.path.exists(file_path):
         await aiofiles.os.remove(file_path)
     await property_crud.delete_image(db, image)
+    await db.commit()
 
 
 def can_edit_property(user: User, property_obj) -> bool:

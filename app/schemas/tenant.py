@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.enums import TenantStatus
 from app.utils.validators import validate_tenant_name
@@ -12,11 +12,11 @@ class TenantBase(BaseModel):
 
 
 class TenantCreate(TenantBase):
-    name: str = Field(..., max_length=255)
+    name: str = Field(max_length=255)
 
     @field_validator("name")
     @classmethod
-    def _validate_name(cls, v: str):
+    def _validate_name(cls, v: str) -> str:
         return validate_tenant_name(v)
 
 
@@ -26,12 +26,12 @@ class TenantUpdate(TenantBase):
 
     @field_validator("name")
     @classmethod
-    def _validate_name(cls, v: str | None):
+    def _validate_name(cls, v: str | None) -> str | None:
         return validate_tenant_name(v)
 
     @field_validator("status")
     @classmethod
-    def validate_status(cls, v: TenantStatus | None):
+    def validate_status(cls, v: TenantStatus | None) -> TenantStatus | None:
         if v is None:
             raise ValueError("Tenant Status cannot be null")
         return v
@@ -44,7 +44,7 @@ class TenantResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TenantListResponse(BaseModel):

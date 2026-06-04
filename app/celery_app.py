@@ -5,6 +5,7 @@ from celery.schedules import crontab
 from celery.signals import setup_logging
 
 from app.constants.celery_schedule import (
+    EXPIRED_BOOKING_SWEEP_INTERVAL_SECONDS,
     PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
     TOKEN_CLEANUP_CRON_HOUR,
     TOKEN_CLEANUP_CRON_MINUTE,
@@ -50,6 +51,10 @@ celery_app.conf.update(
         "reconcile-pending-payments": {
             "task": "app.tasks.payment_tasks.reconcile_pending_payments",
             "schedule": PAYMENT_RECONCILIATION_INTERVAL_SECONDS,
+        },
+        "sweep-expired-pending-bookings": {
+            "task": "app.tasks.booking_tasks.sweep_expired_pending_bookings",
+            "schedule": EXPIRED_BOOKING_SWEEP_INTERVAL_SECONDS,
         },
         "cleanup-expired-tokens": {
             "task": "app.tasks.auth_tasks.cleanup_tokens",

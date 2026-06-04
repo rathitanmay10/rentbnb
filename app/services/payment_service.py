@@ -1,14 +1,16 @@
 import logging
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.payment import DEFAULT_CURRENCY
 from app.constants.razorpay import RAZORPAY_STATUS_CAPTURED
 from app.core import settings
 from app.crud import booking_crud, payment_crud, property_crud, user_crud, webhook_crud
-from app.enums import BookingStatus, PaymentStatus, WebhookEvents
+from app.enums import BookingStatus, PaymentStatus, UserRole, WebhookEvents
+from app.exceptions import BadRequestError, InternalError, NotFoundError
+from app.models import User
 from app.services import message_service
 from app.tasks.email_tasks import send_email_task
 from app.utils.email_utils import build_booking_email
@@ -36,10 +38,8 @@ async def create_razorpay_order(
         order = await RazorpayClient.create_order(data=data)
         return order
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Razorpay order creation failed: {e!s}",
-        )
+        logger.exception("Razorpay order creation failed")
+        raise InternalError("Razorpay order creation failed") from e
 
 
 async def verify_payment_signature(
@@ -55,8 +55,33 @@ async def verify_payment_signature(
             }
         )
         return True
-    except Exception:
+    except BadRequestError:
         return False
+
+
+async def get_booking_payments(
+    db: AsyncSession, booking_id: UUID, current_user: User
+) -> list:
+    """Return payments for a booking, scoped to the caller's access.
+
+    A 404 is raised (rather than 403) on cross-tenant or unauthorized access
+    to avoid leaking booking existence.
+    """
+    booking = await booking_crud.get_booking(db, booking_id)
+    if not booking or booking.tenant_id != current_user.tenant_id:
+        raise NotFoundError("Booking not found")
+
+    if current_user.role == UserRole.GUEST and booking.guest_id != current_user.id:
+        raise NotFoundError("Booking not found")
+    if (
+        current_user.role == UserRole.MANAGER
+        and booking.property_manager_id != current_user.id
+    ):
+        raise NotFoundError("Booking not found")
+
+    return await payment_crud.get_payments_by_booking(
+        db, booking_id, current_user.tenant_id
+    )
 
 
 async def process_webhook(
@@ -65,10 +90,7 @@ async def process_webhook(
     """Process Razorpay webhook."""
     if not settings.RAZORPAY_WEBHOOK_SECRET:
         logger.error("Webhook secret not configured")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Webhook secret not configured",
-        )
+        raise InternalError("Webhook secret not configured")
 
     try:
         RazorpayClient.verify_webhook_signature(
@@ -76,12 +98,8 @@ async def process_webhook(
         )
     except Exception as e:
         logger.error(f"Signature verification failed: {type(e).__name__}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid webhook signature",
-        )
+        raise BadRequestError("Invalid webhook signature") from e
 
-    event_id = event_id
     event_type = payload.get("event")
 
     webhook = await webhook_crud.get_webhook_by_event_id(db, event_id)
@@ -91,34 +109,41 @@ async def process_webhook(
             return {"status": "ignored", "reason": "already_processed"}
         logger.info(f"Retrying processing for existing webhook {event_id}")
     else:
-        webhook = await webhook_crud.create_webhook(
-            db,
-            {
-                "event_type": event_type,
-                "payload": payload,
-                "razorpay_event_id": event_id,
-                "processed": False,
-                "tenant_id": None,
-            },
-        )
-        await db.commit()
+        try:
+            webhook = await webhook_crud.create_webhook(
+                db,
+                {
+                    "event_type": event_type,
+                    "payload": payload,
+                    "razorpay_event_id": event_id,
+                    "processed": False,
+                    "tenant_id": None,
+                },
+            )
+            await db.commit()
+        except IntegrityError:
+            # Concurrent delivery of the same event raced us to the unique
+            # razorpay_event_id. Roll back and let the worker that won the
+            # insert own this event; the payment row lock below would make a
+            # double-process idempotent anyway.
+            await db.rollback()
+            webhook = await webhook_crud.get_webhook_by_event_id(db, event_id)
+            if not webhook or webhook.processed:
+                return {"status": "ignored", "reason": "already_processed"}
 
-    try:
-        if event_type == WebhookEvents.PAYMENT_CAPTURED:
-            await _handle_payment_captured(db, payload)
-        elif event_type == WebhookEvents.PAYMENT_FAILED:
-            await _handle_payment_failed(db, payload)
-        elif event_type == WebhookEvents.REFUND_PROCESSED:
-            await _handle_refund_processed(db, payload)
-        elif event_type == WebhookEvents.REFUND_CREATED:
-            logger.info(f"Refund created for event {event_id}")
-        elif event_type == WebhookEvents.REFUND_FAILED:
-            logger.error(f"Refund failed for event {event_id}")
+    if event_type == WebhookEvents.PAYMENT_CAPTURED:
+        await _handle_payment_captured(db, payload)
+    elif event_type == WebhookEvents.PAYMENT_FAILED:
+        await _handle_payment_failed(db, payload)
+    elif event_type == WebhookEvents.REFUND_PROCESSED:
+        await _handle_refund_processed(db, payload)
+    elif event_type == WebhookEvents.REFUND_CREATED:
+        logger.info(f"Refund created for event {event_id}")
+    elif event_type == WebhookEvents.REFUND_FAILED:
+        logger.error(f"Refund failed for event {event_id}")
 
-        await webhook_crud.mark_webhook_processed(db, webhook.id)
-        await db.commit()
-    except Exception as e:
-        raise e
+    await webhook_crud.mark_webhook_processed(db, webhook.id)
+    await db.commit()
 
     return {"status": "processed"}
 
@@ -127,17 +152,24 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
     payment_entity = payload["payload"]["payment"]["entity"]
     order_id = payment_entity["order_id"]
     payment_id = payment_entity["id"]
-    amount = payment_entity["amount"] / 100
+    amount_paise = payment_entity["amount"]
 
-    payment = await payment_crud.get_payment_by_order_id(db, order_id)
+    # Lock the payment row so the reconciliation poller cannot confirm the same
+    # payment concurrently (which would send duplicate confirmation emails).
+    payment = await payment_crud.get_payment_by_order_id_for_update(db, order_id)
     if not payment:
+        return
+
+    # Idempotency: only a PENDING payment is actionable. A retried webhook (or a
+    # poller that already won the lock) finds a non-PENDING status and exits.
+    if payment.status != PaymentStatus.PENDING:
         return
 
     booking = await booking_crud.get_booking(db, payment.booking_id)
     if not booking:
         return
 
-    if float(payment.amount) != float(amount):
+    if int(payment.amount * 100) != amount_paise:
         await payment_crud.update_payment(
             db, payment.id, status=PaymentStatus.FAILED, razorpay_payment_id=payment_id
         )
@@ -187,8 +219,6 @@ async def _handle_payment_captured(db: AsyncSession, payload: dict):
         )
         await process_refund(db, payment.id)
 
-    await db.commit()
-
 
 async def _handle_payment_failed(db: AsyncSession, payload: dict):
     payment_entity = payload["payload"]["payment"]["entity"]
@@ -219,8 +249,6 @@ async def _handle_payment_failed(db: AsyncSession, payload: dict):
                     subject = "Payment Failed"
                     body = f"Your payment for booking {booking.id} has failed."
                     send_email_task.delay(email, subject, body)
-
-    await db.commit()
 
 
 async def process_refund(db: AsyncSession, payment_id: UUID):
@@ -257,7 +285,9 @@ async def _handle_refund_processed(db: AsyncSession, payload: dict):
 
 async def check_payment_status(db: AsyncSession, payment_id: UUID):
     """Check payment status via Razorpay API (Polling)."""
-    payment = await payment_crud.get_payment(db, payment_id)
+    # Lock the payment row so a concurrent webhook cannot confirm the same
+    # payment in parallel (duplicate booking-confirm emails/notifications).
+    payment = await payment_crud.get_payment_for_update(db, payment_id)
     if not payment:
         return
 
@@ -270,8 +300,7 @@ async def check_payment_status(db: AsyncSession, payment_id: UUID):
 
         for item in items:
             if item["status"] == RAZORPAY_STATUS_CAPTURED:
-                amount_paid = item["amount"] / 100
-                if amount_paid == float(payment.amount):
+                if item["amount"] == int(payment.amount * 100):
                     await payment_crud.update_payment(
                         db,
                         payment.id,

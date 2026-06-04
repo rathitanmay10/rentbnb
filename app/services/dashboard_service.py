@@ -7,9 +7,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import BookingStatus, PaymentStatus
+from app.exceptions import BadRequestError
 from app.models import Booking, Payment, Tenant
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_date_range(from_date: date | None, to_date: date | None) -> None:
+    if from_date and to_date and from_date > to_date:
+        raise BadRequestError("Start date cannot be after end date")
 
 
 async def get_tenant_dashboard(
@@ -26,6 +32,7 @@ async def get_tenant_dashboard(
         from_date = datetime.now(UTC).date().replace(day=1)
     if not to_date:
         to_date = datetime.now(UTC).date()
+    _validate_date_range(from_date, to_date)
 
     # Convert dates to datetime for comparison with created_at
     from_datetime = datetime.combine(from_date, datetime.min.time())
@@ -93,6 +100,7 @@ async def get_platform_dashboard(
         from_date = datetime.now(UTC).date().replace(day=1)
     if not to_date:
         to_date = datetime.now(UTC).date()
+    _validate_date_range(from_date, to_date)
 
     # Convert dates to datetime for comparison
     from_datetime = datetime.combine(from_date, datetime.min.time())

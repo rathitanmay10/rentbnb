@@ -1,25 +1,27 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud import payment_crud
-from app.database.init_db import get_db
-from app.dependencies.tenant import get_tenant_user
-from app.models import User
+from app.dependencies.types import DbDep, TenantUserDep
+from app.schemas.error import (
+    BAD_REQUEST,
+    FORBIDDEN,
+    INTERNAL_SERVER_ERROR,
+    NOT_FOUND,
+)
 from app.schemas.payment import PaymentListResponse
 from app.services import payment_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/payments", tags=["Payments"])
+router = APIRouter(
+    prefix="/payments", tags=["Payments"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.post("/callback/")
-async def payment_callback(
-    request: Request,
-):
+async def payment_callback(request: Request) -> RedirectResponse:
     """
     Handle Razorpay payment callback (redirect after payment).
     This endpoint receives the payment response and redirects to status page.
@@ -40,17 +42,14 @@ async def payment_callback(
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
-@router.post("/webhook/")
-async def webhook(request: Request, db: AsyncSession = Depends(get_db)):
+@router.post("/webhook/", responses={**BAD_REQUEST, **INTERNAL_SERVER_ERROR})
+async def webhook(request: Request, db: DbDep) -> dict:
     """
     Handle Razorpay webhook events.
     """
 
-    signature = (
-        request.headers.get("X-Razorpay-Signature")
-        or request.headers.get("x-razorpay-signature")
-        or request.headers.get("X-RAZORPAY-SIGNATURE")
-    )
+    # Starlette headers are case-insensitive.
+    signature = request.headers.get("X-Razorpay-Signature")
     event_id = request.headers.get("x-razorpay-event-id")
     if not signature:
         raise HTTPException(
@@ -84,12 +83,10 @@ async def webhook(request: Request, db: AsyncSession = Depends(get_db)):
 @router.get("/booking/{booking_id}", response_model=PaymentListResponse)
 async def get_booking_payments(
     booking_id: UUID,
-    current_user: User = Depends(get_tenant_user),
-    db: AsyncSession = Depends(get_db),
+    current_user: TenantUserDep,
+    db: DbDep,
 ):
-    payments = await payment_crud.get_payments_by_booking(
-        db, booking_id, current_user.tenant_id
-    )
+    payments = await payment_service.get_booking_payments(db, booking_id, current_user)
     if not payments:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Payments not found"

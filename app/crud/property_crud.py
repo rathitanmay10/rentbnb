@@ -27,7 +27,7 @@ async def create_property(db: AsyncSession, property_data: PropertyCreate) -> Pr
         db_property.amenities = list(amenities)
 
     db.add(db_property)
-    await db.commit()
+    await db.flush()
     await db.refresh(db_property)
 
     return db_property
@@ -79,7 +79,7 @@ async def update_property(
         amenities = result.scalars().all()
         property_obj.amenities = list(amenities)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(property_obj)
 
     return property_obj
@@ -88,7 +88,7 @@ async def update_property(
 async def delete_property(db: AsyncSession, property_obj: Property):
     """Soft delete a property."""
     property_obj.soft_delete()
-    await db.commit()
+    await db.flush()
 
 
 async def get_properties(
@@ -139,7 +139,7 @@ async def add_property_image(
     """Add an image to a property."""
     image = PropertyImage(property_id=property_id, url=url)
     db.add(image)
-    await db.commit()
+    await db.flush()
     await db.refresh(image)
     return image
 
@@ -185,7 +185,7 @@ async def get_properties_for_user(
 async def delete_image(db: AsyncSession, image: PropertyImage):
     """Delete an image."""
     await db.delete(image)
-    await db.commit()
+    await db.flush()
 
 
 async def soft_delete_properties_by_tenant(db: AsyncSession, tenant_id: UUID) -> None:

@@ -3,12 +3,14 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logger import setup_logging
 from app.core.settings import settings
+from app.exceptions import AppError
 from app.routers import (
     amenity,
     auth,
@@ -22,7 +24,9 @@ from app.routers import (
     user,
     websocket,
 )
+from app.schemas.error import ValidationErrorResponse
 from app.utils.exception_handlers import (
+    app_exception_handler,
     db_exception_handler,
     global_exception_handler,
     http_exception_handler,
@@ -54,6 +58,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_exception_handler(AppError, app_exception_handler)
 app.add_exception_handler(IntegrityError, db_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
@@ -78,3 +83,47 @@ app.include_router(websocket.router)
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+
+    validation_error_schema = ValidationErrorResponse.model_json_schema(
+        ref_template="#/components/schemas/{model}"
+    )
+
+    components_schemas = openapi_schema.setdefault("components", {}).setdefault(
+        "schemas", {}
+    )
+
+    if "$defs" in validation_error_schema:
+        for def_name, def_schema in validation_error_schema.pop("$defs").items():
+            components_schemas[def_name] = def_schema
+
+    components_schemas["ValidationErrorResponse"] = validation_error_schema
+
+    components_schemas.pop("HTTPValidationError", None)
+    components_schemas.pop("ValidationError", None)
+
+    for _path, methods in openapi_schema.get("paths", {}).items():
+        for _method, operation in methods.items():
+            if "responses" in operation and "422" in operation["responses"]:
+                content = operation["responses"]["422"].get("content", {})
+                if "application/json" in content:
+                    content["application/json"]["schema"] = {
+                        "$ref": "#/components/schemas/ValidationErrorResponse"
+                    }
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi

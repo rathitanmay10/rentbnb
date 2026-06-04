@@ -12,9 +12,31 @@ async def get_payment(db: AsyncSession, payment_id: UUID) -> Payment | None:
     return await db.get(Payment, payment_id)
 
 
+async def get_payment_for_update(db: AsyncSession, payment_id: UUID) -> Payment | None:
+    """Get payment by ID with a row-level lock to serialize status updates."""
+    query = select(Payment).where(Payment.id == payment_id).with_for_update()
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
 async def get_payment_by_order_id(db: AsyncSession, order_id: str) -> Payment | None:
     """Get payment by Razorpay order ID."""
     query = select(Payment).where(Payment.razorpay_order_id == order_id)
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_payment_by_order_id_for_update(
+    db: AsyncSession, order_id: str
+) -> Payment | None:
+    """Get payment by Razorpay order ID with a row-level lock.
+
+    Serializes the webhook handler and the reconciliation poller so a payment
+    is confirmed exactly once (no duplicate booking-confirm emails/notifications).
+    """
+    query = (
+        select(Payment).where(Payment.razorpay_order_id == order_id).with_for_update()
+    )
     result = await db.execute(query)
     return result.scalar_one_or_none()
 

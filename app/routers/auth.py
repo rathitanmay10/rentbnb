@@ -1,18 +1,15 @@
 import logging
 from datetime import UTC, datetime
-from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+# pyrefly: ignore [missing-import]
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from jose import JWTError, jwt
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants.rate_limit import AUTH_LIMIT_SECONDS, AUTH_LIMIT_TIMES
 from app.core.settings import settings
-from app.database.init_db import get_db
-from app.dependencies import get_current_user
 from app.dependencies.rate_limit import RateLimiter
-from app.dependencies.tenant import get_tenant_id_from_header
-from app.models import User
+from app.dependencies.types import CurrentUserDep, DbDep, TenantIdDep
+from app.exceptions import BadRequestError
 from app.schemas.auth import (
     ChangePasswordSchema,
     EmailOnlySchema,
@@ -25,13 +22,24 @@ from app.schemas.auth import (
     VerifyEmailSchema,
     VerifyLoginSchema,
 )
+from app.schemas.error import BAD_REQUEST, FORBIDDEN, NOT_FOUND, TOO_MANY, UNAUTHORIZED
 from app.schemas.response import MessageResponse
 from app.services import auth_service
 
 ALGO = settings.ALGORITHM
 SECRET = settings.SECRET_KEY
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"],
+    responses={**UNAUTHORIZED, **BAD_REQUEST},
+)
+
+# Rate limit applied to the public/credential endpoints only — not to
+# refresh, change-password, or logout (which were never rate limited).
+auth_rate_limit = Depends(
+    RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)
+)
 
 
 @router.post(
@@ -39,14 +47,15 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     status_code=status.HTTP_201_CREATED,
     response_model=MessageResponse,
     summary="Register a new user",
+    dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN, **TOO_MANY},
 )
 async def register(
     register_data: RegisterSchema,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+    tenant_id: TenantIdDep,
+) -> dict:
     """
     Register a new user (guest by default).
 
@@ -64,12 +73,13 @@ async def register(
     status_code=status.HTTP_200_OK,
     response_model=MessageResponse,
     summary="Verify user email",
+    dependencies=[auth_rate_limit],
+    responses={**NOT_FOUND, **TOO_MANY},
 )
 async def verify_email(
     verify_data: VerifyEmailSchema,
-    db: AsyncSession = Depends(get_db),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+) -> dict:
     """
     Verify email using the token sent via email.
     """
@@ -83,14 +93,15 @@ async def verify_email(
     status_code=status.HTTP_200_OK,
     response_model=MessageResponse,
     summary="Resend Verification Mail",
+    dependencies=[auth_rate_limit],
+    responses={**TOO_MANY},
 )
 async def resend_verify(
     resend_email: EmailOnlySchema,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+    tenant_id: TenantIdDep,
+) -> dict:
     """
     Resend Verification Email
     """
@@ -104,13 +115,14 @@ async def resend_verify(
     "/login",
     response_model=TokenResponse,
     summary="Login with Password",
+    dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN, **NOT_FOUND, **TOO_MANY},
 )
 async def login_password(
     login_data: LoginSchema,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+    tenant_id: TenantIdDep,
+) -> dict:
     """
     Standard login with email and password.
     """
@@ -121,14 +133,15 @@ async def login_password(
     "/login-otp",
     response_model=MessageResponse,
     summary="Login step 1: Send OTP (Passwordless)",
+    dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN, **NOT_FOUND, **TOO_MANY},
 )
 async def login_otp_init(
     login_data: EmailOnlySchema,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+    tenant_id: TenantIdDep,
+) -> dict:
     """
     Initiate passwordless login. Sends OTP to email.
     """
@@ -141,13 +154,14 @@ async def login_otp_init(
     "/verify-otp",
     response_model=TokenResponse,
     summary="Login step 2: Verify OTP (Passwordless)",
+    dependencies=[auth_rate_limit],
+    responses={**FORBIDDEN, **NOT_FOUND, **TOO_MANY},
 )
 async def login_otp_verify(
     verify_data: VerifyLoginSchema,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+    tenant_id: TenantIdDep,
+) -> dict:
     """
     Complete passwordless login by verifying OTP.
     """
@@ -161,8 +175,8 @@ async def login_otp_verify(
 )
 async def refresh(
     refresh_data: RefreshSchema,
-    db: AsyncSession = Depends(get_db),
-):
+    db: DbDep,
+) -> dict:
     """
     Refresh access token using refresh token.
 
@@ -181,9 +195,9 @@ async def refresh(
 )
 async def change_password(
     change_data: ChangePasswordSchema,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
+    current_user: CurrentUserDep,
+    db: DbDep,
+) -> dict:
     """
     Change user password.
 
@@ -200,14 +214,15 @@ async def change_password(
     status_code=status.HTTP_200_OK,
     response_model=MessageResponse,
     summary="Request password reset",
+    dependencies=[auth_rate_limit],
+    responses={**NOT_FOUND, **TOO_MANY},
 )
 async def forgot_password(
     data: ForgotPasswordSchema,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+    tenant_id: TenantIdDep,
+) -> dict:
     """
     Request password reset link.
 
@@ -222,13 +237,14 @@ async def forgot_password(
     status_code=status.HTTP_200_OK,
     response_model=MessageResponse,
     summary="Reset password",
+    dependencies=[auth_rate_limit],
+    responses={**NOT_FOUND, **TOO_MANY},
 )
 async def reset_password(
     data: ResetPasswordSchema,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: UUID | None = Depends(get_tenant_id_from_header),
-    _: None = Depends(RateLimiter(times=AUTH_LIMIT_TIMES, seconds=AUTH_LIMIT_SECONDS)),
-):
+    db: DbDep,
+    tenant_id: TenantIdDep,
+) -> dict:
     """
     Reset password using token.
 
@@ -247,9 +263,9 @@ async def reset_password(
 )
 async def logout(
     refresh_data: RefreshSchema,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
+    current_user: CurrentUserDep,
+    db: DbDep,
+) -> dict:
     """
     Logout user by blacklisting refresh token.
 
@@ -267,9 +283,7 @@ async def logout(
         exp = payload.get("exp")
         expires_at = datetime.fromtimestamp(exp, tz=UTC)
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token"
-        )
+        raise BadRequestError("Invalid refresh token")
 
     await auth_service.logout(db, current_user, jti, expires_at)
     logger.info(f"User {current_user.id} logged out")

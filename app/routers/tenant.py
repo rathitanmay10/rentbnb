@@ -1,16 +1,24 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app.database.init_db import get_db
-from app.dependencies import require_super_admin, require_tenant_or_super_admin
-from app.enums import UserRole
-from app.models import User
+from app.dependencies.types import (
+    DbDep,
+    SuperAdminDep,
+    TenantOrSuperAdminDep,
+)
 from app.schemas import TenantCreate, TenantListResponse, TenantResponse, TenantUpdate
+from app.schemas.error import (
+    BAD_REQUEST,
+    CONFLICT,
+    FORBIDDEN,
+    NOT_FOUND,
+)
 from app.services import tenant_service
 
-router = APIRouter(prefix="/tenants", tags=["Tenants"])
+router = APIRouter(
+    prefix="/tenants", tags=["Tenants"], responses={**NOT_FOUND, **FORBIDDEN}
+)
 
 
 @router.post(
@@ -19,22 +27,18 @@ router = APIRouter(prefix="/tenants", tags=["Tenants"])
     status_code=status.HTTP_201_CREATED,
     summary="Create a new tenant",
     description="Create a new tenant (SUPER_ADMIN only).",
+    responses={**CONFLICT},
 )
 async def create_tenant(
     tenant_data: TenantCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: DbDep,
+    current_user: SuperAdminDep,
 ):
     """
     Create a new tenant (SUPER_ADMIN only).
     - Tenant name must be unique (case-insensitive)
     """
-    try:
-        tenant = await tenant_service.create_tenant(db, tenant_data)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-    return tenant
+    return await tenant_service.create_tenant(db, tenant_data)
 
 
 @router.get(
@@ -44,12 +48,12 @@ async def create_tenant(
     description="List all tenants with pagination.",
 )
 async def list_tenants(
+    db: DbDep,
+    current_user: TenantOrSuperAdminDep,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(
         10, ge=1, le=100, description="Maximum number of records to return"
     ),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_tenant_or_super_admin),
 ):
     """List all tenants with pagination."""
     tenants, total = await tenant_service.get_tenants(db, current_user, skip, limit)
@@ -65,23 +69,11 @@ async def list_tenants(
 )
 async def get_tenant(
     tenant_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_tenant_or_super_admin),
+    db: DbDep,
+    current_user: TenantOrSuperAdminDep,
 ):
     """Get a specific tenant by ID."""
-    if (
-        current_user.role == UserRole.TENANT_ADMIN
-        and not tenant_id == current_user.tenant_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-        )
-    tenant = await tenant_service.get_tenant(db, tenant_id)
-    if not tenant or tenant.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-        )
-    return tenant
+    return await tenant_service.get_tenant(db, tenant_id, current_user)
 
 
 @router.patch(
@@ -89,12 +81,13 @@ async def get_tenant(
     response_model=TenantResponse,
     summary="Update tenant",
     description="Update a tenant's name or status (SUPER_ADMIN only).",
+    responses={**CONFLICT},
 )
 async def update_tenant(
     tenant_id: UUID,
     tenant_data: TenantUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
+    db: DbDep,
+    current_user: SuperAdminDep,
 ):
     """
     Update a tenant (SUPER_ADMIN only).
@@ -102,16 +95,7 @@ async def update_tenant(
     - Can update name and status
     - New name must be unique (case-insensitive)
     """
-    try:
-        tenant = await tenant_service.update_tenant(db, tenant_id, tenant_data)
-        if not tenant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
-            )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-    return tenant
+    return await tenant_service.update_tenant(db, tenant_id, tenant_data)
 
 
 @router.delete(
@@ -119,20 +103,21 @@ async def update_tenant(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft delete tenant",
     description="Soft delete a tenant and all associated users (SUPER_ADMIN only).",
+    responses={**BAD_REQUEST},
 )
 async def delete_tenant(
     tenant_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_super_admin),
-):
+    db: DbDep,
+    current_user: SuperAdminDep,
+) -> None:
     """
     Soft delete a tenant and all associated users (SUPER_ADMIN only).
 
     - Cascades to all users in the tenant
     - Data is not physically deleted, just marked as deleted
     """
-    try:
-        await tenant_service.soft_delete_tenant_cascade(db, tenant_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    return
+    success = await tenant_service.soft_delete_tenant_cascade(db, tenant_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
+        )

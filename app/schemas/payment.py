@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.enums import PaymentStatus
 
@@ -19,7 +19,7 @@ class PaymentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaymentListResponse(BaseModel):
@@ -39,4 +39,4 @@ class RazorpayWebhookPayload(BaseModel):
     event: str
     payload: dict
 
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")

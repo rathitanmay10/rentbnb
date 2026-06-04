@@ -4,7 +4,7 @@ import hmac
 import secrets
 from uuid import UUID
 
-from fastapi import BackgroundTasks, HTTPException, status
+from fastapi import BackgroundTasks
 
 from app.constants.auth_ttl import OTP_COOLDOWN, OTP_MAX_ATTEMPTS, OTP_TTL
 from app.constants.messages import (
@@ -19,6 +19,7 @@ from app.constants.redis_keys import (
     REDIS_OTP_COOLDOWN,
     get_tenant_prefix,
 )
+from app.exceptions import BadRequestError, TooManyRequestsError
 from app.services.email_service import email_service
 from app.utils.redis_client import redis_client
 
@@ -40,10 +41,7 @@ class OTPHandler:
 
         # Enforce cooldown
         if await redis_client.get(cooldown_key):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=OTP_COOLDOWN_MSG,
-            )
+            raise TooManyRequestsError(OTP_COOLDOWN_MSG)
 
         # Generate 6-digit secure OTP
         otp = "".join(str(secrets.randbelow(10)) for _ in range(6))
@@ -68,7 +66,7 @@ class OTPHandler:
         """
         Verifies the provided OTP.
         Enforces max attempts.
-        Returns True if valid, otherwise raises HTTPException.
+        Returns True if valid, otherwise raises a domain error.
         """
         tenant_prefix = get_tenant_prefix(tenant_id)
 
@@ -79,32 +77,25 @@ class OTPHandler:
         stored_otp = await redis_client.get(otp_key)
         # OTP expired or not found
         if not stored_otp:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=OTP_INVALID,
-            )
+            raise BadRequestError(OTP_INVALID)
 
-        # Check attempts
-        attempts = await redis_client.get(attempt_key)
-        if attempts and int(attempts) >= OTP_MAX_ATTEMPTS:
+        # Count this attempt atomically BEFORE comparing. INCR is atomic, so
+        # concurrent verifications get distinct counts and the cap cannot be
+        # bypassed by racing requests (read-then-increment would let N parallel
+        # calls all read a stale count below the limit).
+        attempts = await redis_client.incr(attempt_key)
+        if attempts > OTP_MAX_ATTEMPTS:
             await redis_client.delete(otp_key, attempt_key, cooldown_key)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=OTP_RATE_LIMITED,
-            )
+            raise TooManyRequestsError(OTP_RATE_LIMITED)
 
         # Hash incoming OTP for comparison
         hashed_input = hashlib.sha256(otp.encode()).hexdigest()
 
         # Constant-time comparison
         if not hmac.compare_digest(stored_otp, hashed_input):
-            await redis_client.incr(attempt_key)
             await asyncio.sleep(0.5)
 
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=OTP_INVALID,
-            )
+            raise BadRequestError(OTP_INVALID)
 
         await redis_client.delete(otp_key, attempt_key, cooldown_key)
 
